@@ -1,503 +1,324 @@
-# MongoDB Schema Definitions & Types
+# PostgreSQL Database Schema Definitions & Types
 
-This document defines the schema structure, object types, and field descriptions for each collection in the Drink Ordering System database.
-
----
-
-## Table of Contents
-
-1. [users](#1-users)
-2. [stores](#2-stores)
-3. [categories](#3-categories)
-4. [products](#4-products)
-5. [vouchers](#5-vouchers)
-6. [carts](#6-carts)
-7. [orders](#7-orders)
-8. [reviews](#8-reviews)
-9. [audit_logs](#9-audit_logs)
-10. [notifications](#10-notifications)
+This document defines the SQL schema structure, table definitions, data types, relationships, and constraints for each table in the Drink Ordering System PostgreSQL database.
 
 ---
 
-## 1. `users`
+## 1. Entity Relationship (ER) Diagram
 
-### Document Structure
-```javascript
-{
-  _id: ObjectId,
-  email: String,
-  phone: String,
-  passwordHash: String,
-  role: String,                  // "customer" | "owner" | "staff" | "admin"
-  storeId: ObjectId,             // Nullable. Reference to 'stores'. Only for role = "staff"
-  fullName: String,
-  avatarUrl: String,
-  dob: Date,                     // Date of birth
-  gender: String,                // "male" | "female" | "other"
-  isVerified: Boolean,
-  isBanned: Boolean,
-  addresses: [                   // Embedded Array of Address objects
-    {
-      _id: ObjectId,
-      receiverName: String,
-      receiverPhone: String,
-      addressLine: String,
-      isDefault: Boolean
-    }
-  ],
-  createdAt: Date,
-  updatedAt: Date
-}
+```mermaid
+erDiagram
+    users ||--o{ addresses : "has"
+    users ||--o{ orders : "places"
+    users ||--o{ reviews : "writes"
+    users ||--o{ refresh_tokens : "has"
+    
+    stores ||--o{ users : "employs (staff)"
+    stores ||--o{ categories : "contains"
+    stores ||--o{ products : "sells"
+    stores ||--o{ orders : "receives"
+    stores ||--o{ reviews : "receives"
+    
+    categories ||--o{ products : "categorizes"
+    
+    orders ||--|{ order_items : "contains"
+    orders ||--o| reviews : "has"
+    
+    products ||--o{ order_items : "referenced in"
 ```
 
-### Field Definitions
-| Field | Type | Description | Constraints |
-|---|---|---|---|
-| `_id` | `ObjectId` | Primary key of the user document | Generated automatically |
-| `email` | `String` | Email address used for authentication | Unique index |
-| `phone` | `String` | Phone number for contact and login | Unique index |
-| `passwordHash` | `String` | Bcrypt-hashed password | - |
-| `role` | `String` | Authorization role | Enum: `"customer"`, `"owner"`, `"staff"`, `"admin"` |
-| `storeId` | `ObjectId` | Reference to store user works at | Optional; required for `"staff"` role |
-| `fullName` | `String` | User's full name | - |
-| `avatarUrl` | `String` | Profile picture Cloudinary URL | Optional |
-| `dob` | `Date` | Date of birth | Optional |
-| `gender` | `String` | Gender identity | Enum: `"male"`, `"female"`, `"other"` |
-| `isVerified` | `Boolean` | Account email/phone verification status | Default: `false` |
-| `isBanned` | `Boolean` | Flag indicating if user is restricted | Default: `false` |
-| `addresses` | `Array<Address>` | User's saved delivery addresses | Embedded schema; max size bounded |
-| `createdAt` | `Date` | Timestamp when user was created | Set automatically by Mongoose |
-| `updatedAt` | `Date` | Timestamp when user was last updated | Set automatically by Mongoose |
+---
 
-#### Address Embedded Object
-| Field | Type | Description | Constraints |
-|---|---|---|---|
-| `_id` | `ObjectId` | Unique identifier for the address object | Generated automatically |
-| `receiverName` | `String` | Name of the order recipient | Required |
-| `receiverPhone` | `String` | Phone number of the order recipient | Required |
-| `addressLine` | `String` | Full delivery address text | Required |
-| `isDefault` | `Boolean` | Indicates default selected address | Default: `false` |
+## 2. Table Definitions & DDL
+
+Below is the PostgreSQL DDL (Data Definition Language) script defining all tables, constraints, and indexes.
+
+```sql
+-- Enable UUID extension if not already enabled
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- 1. STORES TABLE
+CREATE TABLE stores (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(100) NOT NULL,
+    phone VARCHAR(20) NOT NULL,
+    address TEXT NOT NULL,
+    is_open BOOLEAN NOT NULL DEFAULT TRUE,
+    is_locked BOOLEAN NOT NULL DEFAULT FALSE,
+    rating_avg NUMERIC(3, 2) NOT NULL DEFAULT 0.00,
+    rating_count INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 2. USERS TABLE
+CREATE TABLE users (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    role VARCHAR(20) NOT NULL CHECK (role IN ('customer', 'staff', 'admin')),
+    store_id UUID REFERENCES stores(id) ON DELETE SET NULL,
+    full_name VARCHAR(100) NOT NULL,
+    avatar_url VARCHAR(255),
+    dob DATE,
+    gender VARCHAR(10) CHECK (gender IN ('male', 'female', 'other')),
+    is_banned BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 3. ADDRESSES TABLE (Separate relation instead of embedded array)
+CREATE TABLE addresses (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    receiver_name VARCHAR(100) NOT NULL,
+    receiver_phone VARCHAR(20) NOT NULL,
+    address_line TEXT NOT NULL,
+    is_default BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 4. CATEGORIES TABLE
+CREATE TABLE categories (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    store_id UUID NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
+    name VARCHAR(100) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 5. PRODUCTS TABLE
+CREATE TABLE products (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    store_id UUID NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
+    category_id UUID NOT NULL REFERENCES categories(id) ON DELETE RESTRICT,
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    price NUMERIC(12, 2) NOT NULL CHECK (price >= 0.00),
+    image_url VARCHAR(255),
+    status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'hidden', 'out_of_stock')),
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 6. ORDERS TABLE
+CREATE TABLE orders (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    order_code VARCHAR(10) UNIQUE NOT NULL,
+    customer_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    store_id UUID NOT NULL REFERENCES stores(id) ON DELETE RESTRICT,
+    receiver_name VARCHAR(100) NOT NULL,
+    receiver_phone VARCHAR(20) NOT NULL,
+    delivery_address TEXT NOT NULL,
+    subtotal NUMERIC(12, 2) NOT NULL CHECK (subtotal >= 0.00),
+    total_amount NUMERIC(12, 2) NOT NULL CHECK (total_amount >= 0.00),
+    payment_method VARCHAR(20) NOT NULL DEFAULT 'COD' CHECK (payment_method IN ('COD')),
+    status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'preparing', 'completed', 'cancelled')),
+    cancel_reason TEXT,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 7. ORDER_ITEMS TABLE
+CREATE TABLE order_items (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+    product_id UUID NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
+    product_name VARCHAR(100) NOT NULL, -- Historical snapshot
+    price NUMERIC(12, 2) NOT NULL CHECK (price >= 0.00), -- Historical snapshot
+    quantity INTEGER NOT NULL CHECK (quantity > 0),
+    line_total NUMERIC(12, 2) NOT NULL CHECK (line_total >= 0.00),
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 8. REVIEWS TABLE
+CREATE TABLE reviews (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    order_id UUID UNIQUE NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+    customer_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    store_id UUID NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
+    stars INTEGER NOT NULL CHECK (stars BETWEEN 1 AND 5),
+    comment TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 9. REFRESH TOKENS TABLE
+CREATE TABLE refresh_tokens (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token_hash VARCHAR(255) UNIQUE NOT NULL,
+    is_revoked BOOLEAN NOT NULL DEFAULT FALSE,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- --- INDEXES FOR OPTIMIZATION ---
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_users_store_id ON users(store_id) WHERE store_id IS NOT NULL;
+CREATE INDEX idx_addresses_user_id ON addresses(user_id);
+CREATE INDEX idx_categories_store_id ON categories(store_id);
+CREATE INDEX idx_products_store_status ON products(store_id, status);
+CREATE INDEX idx_products_category ON products(category_id);
+CREATE INDEX idx_products_name ON products(name);
+CREATE INDEX idx_orders_customer_id ON orders(customer_id);
+CREATE INDEX idx_orders_store_status ON orders(store_id, status);
+CREATE INDEX idx_orders_order_code ON orders(order_code);
+CREATE INDEX idx_order_items_order_id ON order_items(order_id);
+CREATE INDEX idx_reviews_store ON reviews(store_id);
+CREATE INDEX idx_refresh_tokens_hash ON refresh_tokens(token_hash);
+```
 
 ---
 
-## 2. `stores`
+## 3. Table Schemas & Column Descriptions
 
-### Document Structure
-```javascript
-{
-  _id: ObjectId,
-  ownerId: ObjectId,             // Reference to 'users' (owner)
-  name: String,
-  phone: String,
-  address: String,
-  avatarUrl: String,
-  coverUrl: String,
-  status: String,                // "pending_approval" | "active" | "locked"
-  isOpen: Boolean,
-  openHours: {
-    open: String,                // "HH:MM" format
-    close: String                // "HH:MM" format
-  },
-  ratingAvg: Number,             // Computed Pattern
-  ratingCount: Number,           // Computed Pattern
-  createdAt: Date,
-  updatedAt: Date
-}
-```
+### 3.1 `stores`
+Stores represent beverage shop profiles.
 
-### Field Definitions
-| Field | Type | Description | Constraints |
+| Column Name | Data Type | Constraints | Description |
 |---|---|---|---|
-| `_id` | `ObjectId` | Primary key of the store document | Generated automatically |
-| `ownerId` | `ObjectId` | Reference to `users` collection | Required |
-| `name` | `String` | Store business name | Required |
-| `phone` | `String` | Store contact phone number | Required |
-| `address` | `String` | Physical address location of the store | Required |
-| `avatarUrl` | `String` | Store logo picture URL | Required |
-| `coverUrl` | `String` | Store banner background image URL | Required |
-| `status` | `String` | Operational registration status | Enum: `"pending_approval"`, `"active"`, `"locked"` |
-| `isOpen` | `Boolean` | Active store open status indicator | Default: `true` |
-| `openHours` | `Object` | Store operation hours limits | Required |
-| `ratingAvg` | `Number` | Cached average ratings score | Default: `0.0`, Computed |
-| `ratingCount` | `Number` | Cached total count of ratings | Default: `0`, Computed |
-| `createdAt` | `Date` | Timestamp of creation | Set automatically |
-| `updatedAt` | `Date` | Timestamp of last update | Set automatically |
+| `id` | `UUID` | PRIMARY KEY | Unique store identifier |
+| `name` | `VARCHAR(100)` | NOT NULL | Store business name |
+| `phone` | `VARCHAR(20)` | NOT NULL | Customer support phone number |
+| `address` | `TEXT` | NOT NULL | Physical location of the store |
+| `is_open` | `BOOLEAN` | NOT NULL, DEFAULT `true` | Toggle indicating if store is currently accepting orders |
+| `is_locked` | `BOOLEAN` | NOT NULL, DEFAULT `false` | Admin-managed lockout status (locked store cannot accept orders or show up) |
+| `rating_avg` | `NUMERIC(3, 2)` | NOT NULL, DEFAULT `0.00` | Cached average ratings score (computed periodically/on-demand) |
+| `rating_count`| `INTEGER` | NOT NULL, DEFAULT `0` | Cached total count of ratings received |
+| `created_at` | `TIMESTAMP WITH TZ`| NOT NULL, DEFAULT `NOW()` | Store creation timestamp |
+| `updated_at` | `TIMESTAMP WITH TZ`| NOT NULL, DEFAULT `NOW()` | Store profile last updated timestamp |
 
 ---
 
-## 3. `categories`
+### 3.2 `users`
+Contains all user accounts including Customer, Staff, and Admin roles.
 
-### Document Structure
-```javascript
-{
-  _id: ObjectId,
-  storeId: ObjectId,             // Reference to 'stores'
-  name: String,
-  displayOrder: Number,
-  createdAt: Date
-}
-```
-
-### Field Definitions
-| Field | Type | Description | Constraints |
+| Column Name | Data Type | Constraints | Description |
 |---|---|---|---|
-| `_id` | `ObjectId` | Primary key of the category document | Generated automatically |
-| `storeId` | `ObjectId` | Reference to the owning store | Required |
-| `name` | `String` | Category title | Required |
-| `displayOrder` | `Number` | Sequence ordering index on menu list | Default: `0`, Indexed with `storeId` |
-| `createdAt` | `Date` | Timestamp of creation | Set automatically |
+| `id` | `UUID` | PRIMARY KEY | Unique user identifier |
+| `email` | `VARCHAR(255)` | UNIQUE, NOT NULL | Primary email address (used for login) |
+| `password_hash`| `VARCHAR(255)` | NOT NULL | Bcrypt-hashed password |
+| `role` | `VARCHAR(20)` | CHECK enum, NOT NULL | Role of user: `'customer'`, `'staff'`, or `'admin'` |
+| `store_id` | `UUID` | FOREIGN KEY -> `stores`, Nullable | Assigned store ID for users with `staff` role |
+| `full_name` | `VARCHAR(100)` | NOT NULL | Display name of the user |
+| `avatar_url` | `VARCHAR(255)` | Nullable | Uploaded profile avatar image path |
+| `dob` | `DATE` | Nullable | User date of birth |
+| `gender` | `VARCHAR(10)` | CHECK enum, Nullable | Identity: `'male'`, `'female'`, or `'other'` |
+| `is_banned` | `BOOLEAN` | NOT NULL, DEFAULT `false` | Lockout state (banned users cannot authenticate or act) |
+| `created_at` | `TIMESTAMP WITH TZ`| NOT NULL, DEFAULT `NOW()` | Account signup timestamp |
+| `updated_at` | `TIMESTAMP WITH TZ`| NOT NULL, DEFAULT `NOW()` | Account update timestamp |
 
 ---
 
-## 4. `products`
+### 3.3 `addresses`
+Delivery addresses managed by Customer users.
 
-### Document Structure
-```javascript
-{
-  _id: ObjectId,
-  storeId: ObjectId,             // Reference to 'stores'
-  categoryId: ObjectId,          // Reference to 'categories'
-  name: String,
-  description: String,
-  basePrice: Number,
-  images: Array<String>,
-  status: String,                // "available" | "hidden" | "out_of_stock"
-  optionGroups: [                // Embedded Array of OptionGroup objects
-    {
-      _id: ObjectId,
-      name: String,
-      type: String,              // "radio" | "checkbox"
-      required: Boolean,
-      options: [                 // Embedded Array of Option objects
-        {
-          _id: ObjectId,
-          name: String,
-          extraPrice: Number
-        }
-      ]
-    }
-  ],
-  createdAt: Date,
-  updatedAt: Date
-}
-```
-
-### Field Definitions
-| Field | Type | Description | Constraints |
+| Column Name | Data Type | Constraints | Description |
 |---|---|---|---|
-| `_id` | `ObjectId` | Primary key of the product document | Generated automatically |
-| `storeId` | `ObjectId` | Reference to the parent store | Required, Compound index with status |
-| `categoryId` | `ObjectId` | Reference to the associated category | Required, Indexed |
-| `name` | `String` | Product item name | Required |
-| `description` | `String` | Details / ingredients description of product | Optional |
-| `basePrice` | `Number` | Baseline item cost | Required, positive |
-| `images` | `Array<String>` | List of product media image URLs | - |
-| `status` | `String` | Availability status on customer interface | Enum: `"available"`, `"hidden"`, `"out_of_stock"` |
-| `optionGroups` | `Array<OptionGroup>` | Configuration options for customized add-ons | Embedded schema |
-| `createdAt` | `Date` | Timestamp of creation | Set automatically |
-| `updatedAt` | `Date` | Timestamp of last update | Set automatically |
-
-#### OptionGroup Embedded Object
-| Field | Type | Description | Constraints |
-|---|---|---|---|
-| `_id` | `ObjectId` | Unique identifier for option group | Generated automatically |
-| `name` | `String` | Group title (e.g., "Size", "Toppings") | Required |
-| `type` | `String` | Selection rules | Enum: `"radio"` (select one), `"checkbox"` (select multiple) |
-| `required` | `Boolean` | Flag indicating selection is mandatory | Required |
-| `options` | `Array<Option>` | Selection list of items | Required, min size: 1 |
-
-#### Option Embedded Object
-| Field | Type | Description | Constraints |
-|---|---|---|---|
-| `_id` | `ObjectId` | Unique identifier for option choice | Generated automatically |
-| `name` | `String` | Choice label (e.g., "M", "Boba") | Required |
-| `extraPrice` | `Number` | Additional cost applied to the base price | Required, non-negative |
+| `id` | `UUID` | PRIMARY KEY | Unique address identifier |
+| `user_id` | `UUID` | FOREIGN KEY -> `users` ON DELETE CASCADE | Associated customer user |
+| `receiver_name`| `VARCHAR(100)`| NOT NULL | Designated receiver's full name |
+| `receiver_phone`| `VARCHAR(20)`| NOT NULL | Designated contact number |
+| `address_line`| `TEXT` | NOT NULL | Full textual delivery location |
+| `is_default` | `BOOLEAN` | NOT NULL, DEFAULT `false` | Default selected delivery address flags |
+| `created_at` | `TIMESTAMP WITH TZ`| NOT NULL, DEFAULT `NOW()` | Creation timestamp |
+| `updated_at` | `TIMESTAMP WITH TZ`| NOT NULL, DEFAULT `NOW()` | Last modified timestamp |
 
 ---
 
-## 5. `vouchers`
+### 3.4 `categories`
+Categories used by stores to classify menu products.
 
-### Document Structure
-```javascript
-{
-  _id: ObjectId,
-  storeId: ObjectId,             // Reference to 'stores'
-  code: String,
-  discountType: String,          // "percentage" | "fixed"
-  discountValue: Number,
-  maxDiscountAmount: Number,
-  minOrderValue: Number,
-  startDate: Date,
-  endDate: Date,
-  maxUsage: Number,
-  usedCount: Number,             // Computed Pattern
-  isActive: Boolean,
-  createdAt: Date,
-  updatedAt: Date
-}
-```
-
-### Field Definitions
-| Field | Type | Description | Constraints |
+| Column Name | Data Type | Constraints | Description |
 |---|---|---|---|
-| `_id` | `ObjectId` | Primary key of the voucher document | Generated automatically |
-| `storeId` | `ObjectId` | Reference to store offering voucher | Required, Unique compound index with `code` |
-| `code` | `String` | Alphanumeric coupon redemption code | Required, Unique with `storeId` |
-| `discountType` | `String` | Discount subtraction style | Enum: `"percentage"`, `"fixed"` |
-| `discountValue` | `Number` | Discount value based on discountType | Required, positive |
-| `maxDiscountAmount`| `Number` | Ceiling discount allowed for `"percentage"` type | Required |
-| `minOrderValue` | `Number` | Threshold order value required to apply voucher | Required, positive |
-| `startDate` | `Date` | Validity start timestamp | Required |
-| `endDate` | `Date` | Validity expiration timestamp | Required |
-| `maxUsage` | `Number` | Total allowed uses for voucher | Required |
-| `usedCount` | `Number` | Counter incremented upon order completion | Default: `0`, Computed |
-| `isActive` | `Boolean` | Operational toggle flag | Default: `true` |
-| `createdAt` | `Date` | Timestamp of creation | Set automatically |
-| `updatedAt` | `Date` | Timestamp of last update | Set automatically |
+| `id` | `UUID` | PRIMARY KEY | Unique category identifier |
+| `store_id` | `UUID` | FOREIGN KEY -> `stores` ON DELETE CASCADE | Store owning the category |
+| `name` | `VARCHAR(100)` | NOT NULL | Category display title |
+| `created_at` | `TIMESTAMP WITH TZ`| NOT NULL, DEFAULT `NOW()` | Creation timestamp |
+| `updated_at` | `TIMESTAMP WITH TZ`| NOT NULL, DEFAULT `NOW()` | Update timestamp |
 
 ---
 
-## 6. `carts`
+### 3.5 `products`
+The menu items listed by stores.
 
-### Document Structure
-```javascript
-{
-  _id: ObjectId,
-  customerId: ObjectId,          // Reference to 'users', UNIQUE
-  storeId: ObjectId,             // Reference to 'stores' (1 store limit constraint)
-  items: [                       // Embedded Array of CartItem objects
-    {
-      _id: ObjectId,
-      productId: ObjectId,       // Reference to 'products'
-      selectedOptions: [         // List of selected options
-        {
-          groupId: ObjectId,     // OptionGroup ID
-          optionId: ObjectId      // Option ID
-        }
-      ],
-      note: String,
-      quantity: Number
-    }
-  ],
-  updatedAt: Date
-}
-```
-
-### Field Definitions
-| Field | Type | Description | Constraints |
+| Column Name | Data Type | Constraints | Description |
 |---|---|---|---|
-| `_id` | `ObjectId` | Primary key of the cart document | Generated automatically |
-| `customerId` | `ObjectId` | Reference to customer owner | Unique index |
-| `storeId` | `ObjectId` | Restricting cart to items from a single store | Required |
-| `items` | `Array<CartItem>` | Selected cart product list | Embedded schema, volatile |
-| `updatedAt` | `Date` | Timestamp of last activity | Set automatically |
-
-#### CartItem Embedded Object
-| Field | Type | Description | Constraints |
-|---|---|---|---|
-| `_id` | `ObjectId` | Unique identifier for cart line item | Generated automatically |
-| `productId` | `ObjectId` | Reference to selected product | Required |
-| `selectedOptions`| `Array<SelectedOption>`| Choices selected from product optionGroups | - |
-| `note` | `String` | Custom instruction notes | Optional |
-| `quantity` | `Number` | Count of identical items | Required, min: 1 |
-
-#### SelectedOption Embedded Object
-| Field | Type | Description | Constraints |
-|---|---|---|---|
-| `groupId` | `ObjectId` | ID matching original product OptionGroup | Required |
-| `optionId` | `ObjectId` | ID matching original option selected | Required |
+| `id` | `UUID` | PRIMARY KEY | Unique product identifier |
+| `store_id` | `UUID` | FOREIGN KEY -> `stores` ON DELETE CASCADE | Owner store |
+| `category_id` | `UUID` | FOREIGN KEY -> `categories` ON DELETE RESTRICT | Category folder |
+| `name` | `VARCHAR(100)` | NOT NULL | Product name |
+| `description` | `TEXT` | Nullable | Detail summary of ingredients, contents, size details |
+| `price` | `NUMERIC(12, 2)`| NOT NULL, CHECK (price >= 0.00) | Item price |
+| `image_url` | `VARCHAR(255)` | Nullable | Local uploads directory file path |
+| `status` | `VARCHAR(20)` | CHECK enum, DEFAULT `'active'` | Display status: `'active'`, `'hidden'`, or `'out_of_stock'` |
+| `created_at` | `TIMESTAMP WITH TZ`| NOT NULL, DEFAULT `NOW()` | Product added timestamp |
+| `updated_at` | `TIMESTAMP WITH TZ`| NOT NULL, DEFAULT `NOW()` | Product configuration last changed |
 
 ---
 
-## 7. `orders`
+### 3.6 `orders`
+The checkout order transaction record.
 
-### Document Structure
-```javascript
-{
-  _id: ObjectId,
-  orderCode: String,             // Short lookup code, UNIQUE
-  customerId: ObjectId,          // Reference to 'users'
-  storeId: ObjectId,             // Reference to 'stores'
-  storeSnapshot: {               // Extended Reference Pattern
-    name: String,
-    avatarUrl: String
-  },
-  deliveryAddress: {             // Immutable Embedded Address Snapshot
-    receiverName: String,
-    receiverPhone: String,
-    addressLine: String
-  },
-  items: [                       // Immutable Historical Snapshot Embedded Array
-    {
-      productId: ObjectId,       // Reference to 'products'
-      productName: String,       // Snapshot name
-      basePrice: Number,         // Snapshot price
-      selectedOptions: [         // Embedded list of option snapshot text
-        {
-          groupName: String,
-          optionName: String,
-          extraPrice: Number
-        }
-      ],
-      quantity: Number,
-      note: String,
-      lineTotal: Number
-    }
-  ],
-  subtotal: Number,
-  voucherId: ObjectId,           // Nullable. Reference to 'vouchers'
-  discountAmount: Number,
-  shippingFee: Number,
-  totalAmount: Number,           // Calculated strictly on backend
-  paymentMethod: String,         // "cod" | "e-wallet" | etc.
-  status: String,                // "pending" | "confirmed" | "preparing" | "delivering" | "completed" | "cancelled"
-  cancelReason: String,          // Nullable
-  statusHistory: [               // Embedded audit trail log
-    {
-      status: String,
-      at: Date,
-      by: ObjectId               // Reference to user who performed action
-    }
-  ],
-  createdAt: Date,
-  updatedAt: Date
-}
-```
-
-### Field Definitions
-| Field | Type | Description | Constraints |
+| Column Name | Data Type | Constraints | Description |
 |---|---|---|---|
-| `_id` | `ObjectId` | Primary key of the order document | Generated automatically |
-| `orderCode` | `String` | Human-readable unique serial code | Unique index |
-| `customerId` | `ObjectId` | Reference to placing customer | Required, Indexed |
-| `storeId` | `ObjectId` | Reference to store fulfilling order | Required, Indexed |
-| `storeSnapshot` | `Object` | Snapshot of store name and logo at checkout | Required |
-| `deliveryAddress`| `Object` | Snapshot of recipient details at checkout | Required |
-| `items` | `Array<OrderItem>` | Selected order product line snapshot | Required, min: 1 |
-| `subtotal` | `Number` | Cumulative cost of items before discounts | Required, positive |
-| `voucherId` | `ObjectId` | Reference to voucher applied | Optional |
-| `discountAmount`| `Number` | Discount value subtracted from order | Required |
-| `shippingFee` | `Number` | Delivery dispatch cost | Required |
-| `totalAmount` | `Number` | Total cost calculated by backend | Required, positive |
-| `paymentMethod` | `String` | Transaction style | Required |
-| `status` | `String` | Current transactional status | Enum: `"pending"`, `"confirmed"`, `"preparing"`, `"delivering"`, `"completed"`, `"cancelled"` |
-| `cancelReason` | `String` | Reason text detailing cancellations | Optional |
-| `statusHistory` | `Array<StatusHistory>` | Order status lifecycle logs | Required |
-| `createdAt` | `Date` | Timestamp of creation | Set automatically |
-| `updatedAt` | `Date` | Timestamp of last update | Set automatically |
-
-#### OrderItem Embedded Object
-| Field | Type | Description | Constraints |
-|---|---|---|---|
-| `productId` | `ObjectId` | Reference to matching product | Required |
-| `productName` | `String` | Copy of product name at order time | Required |
-| `basePrice` | `Number` | Copy of product price at order time | Required, positive |
-| `selectedOptions`| `Array<SelectedOptionSnapshot>`| Details of custom selections chosen | Required |
-| `quantity` | `Number` | Count of items | Required, min: 1 |
-| `note` | `String` | Custom instruction notes | Optional |
-| `lineTotal` | `Number` | Final calculated price of this row | Required |
-
-#### SelectedOptionSnapshot Embedded Object
-| Field | Type | Description | Constraints |
-|---|---|---|---|
-| `groupName` | `String` | Name of parent customization option group | Required |
-| `optionName` | `String` | Name of chosen customization option | Required |
-| `extraPrice` | `Number` | Cost of chosen option at order time | Required, non-negative |
-
-#### StatusHistory Embedded Object
-| Field | Type | Description | Constraints |
-|---|---|---|---|
-| `status` | `String` | Target status transitioned to | Required |
-| `at` | `Date` | Time of transition | Required |
-| `by` | `ObjectId` | ID of user updating the status | Required |
+| `id` | `UUID` | PRIMARY KEY | Unique order transaction identifier |
+| `order_code` | `VARCHAR(10)` | UNIQUE, NOT NULL | Human-readable short reference string (e.g. "8H2F9D") |
+| `customer_id` | `UUID` | FOREIGN KEY -> `users` ON DELETE RESTRICT | Purchasing Customer |
+| `store_id` | `UUID` | FOREIGN KEY -> `stores` ON DELETE RESTRICT | Fulfilling Store |
+| `receiver_name`| `VARCHAR(100)`| NOT NULL | Delivery receiver name snapshot |
+| `receiver_phone`| `VARCHAR(20)`| NOT NULL | Delivery receiver contact snapshot |
+| `delivery_address`| `TEXT` | NOT NULL | Delivery location snapshot |
+| `subtotal` | `NUMERIC(12, 2)`| NOT NULL, CHECK >= 0.00 | Total value of order items before any fees |
+| `total_amount`| `NUMERIC(12, 2)`| NOT NULL, CHECK >= 0.00 | Final checkout total paid by customer |
+| `payment_method`| `VARCHAR(20)` | CHECK enum, DEFAULT `'COD'` | Supported payment methods (COD only in MVP) |
+| `status` | `VARCHAR(20)` | CHECK enum, DEFAULT `'pending'` | Lifecycle state: `'pending'`, `'preparing'`, `'completed'`, `'cancelled'` |
+| `cancel_reason`| `TEXT` | Nullable | Cancellation reason description |
+| `created_at` | `TIMESTAMP WITH TZ`| NOT NULL, DEFAULT `NOW()` | Checkout submission timestamp |
+| `updated_at` | `TIMESTAMP WITH TZ`| NOT NULL, DEFAULT `NOW()` | Last state modification timestamp |
 
 ---
 
-## 8. `reviews`
+### 3.7 `order_items`
+Snapshot details of the products ordered in each order (prevents price or product configuration changes from modifying historical orders).
 
-### Document Structure
-```javascript
-{
-  _id: ObjectId,
-  orderId: ObjectId,             // Reference to 'orders', UNIQUE
-  customerId: ObjectId,          // Reference to 'users'
-  storeId: ObjectId,             // Reference to 'stores'
-  stars: Number,                 // Integer 1 - 5
-  comment: String,
-  createdAt: Date
-}
-```
-
-### Field Definitions
-| Field | Type | Description | Constraints |
+| Column Name | Data Type | Constraints | Description |
 |---|---|---|---|
-| `_id` | `ObjectId` | Primary key of the review document | Generated automatically |
-| `orderId` | `ObjectId` | Reference to rated order transaction | Unique index |
-| `customerId` | `ObjectId` | Reference to reviewing customer | Required |
-| `storeId` | `ObjectId` | Reference to rated store | Required, Indexed |
-| `stars` | `Number` | Rating score | Required, integer: `1` to `5` |
-| `comment` | `String` | User textual feedback commentary | Required |
-| `createdAt` | `Date` | Timestamp of creation | Set automatically |
+| `id` | `UUID` | PRIMARY KEY | Unique row item identifier |
+| `order_id` | `UUID` | FOREIGN KEY -> `orders` ON DELETE CASCADE | Associated order |
+| `product_id` | `UUID` | FOREIGN KEY -> `products` ON DELETE RESTRICT | Reference to source product |
+| `product_name` | `VARCHAR(100)` | NOT NULL | Historical snapshot of the product name |
+| `price` | `NUMERIC(12, 2)`| NOT NULL, CHECK >= 0.00 | Historical snapshot of the price per unit |
+| `quantity` | `INTEGER` | NOT NULL, CHECK (quantity > 0) | Ordered quantity |
+| `line_total` | `NUMERIC(12, 2)`| NOT NULL, CHECK >= 0.00 | Computed row total (`price * quantity`) |
+| `created_at` | `TIMESTAMP WITH TZ`| NOT NULL, DEFAULT `NOW()` | Creation timestamp |
 
 ---
 
-## 9. `audit_logs`
+### 3.8 `reviews`
+Review rating submitted by customers for completed orders.
 
-### Document Structure
-```javascript
-{
-  _id: ObjectId,
-  action: String,                // Action type identifier
-  performedBy: ObjectId,         // Reference to 'users' actor
-  targetType: String,            // Target type (e.g. "order", "user", "store")
-  targetId: ObjectId,            // Reference ID of target object
-  metadata: Object,              // Dynamic context information
-  createdAt: Date
-}
-```
-
-### Field Definitions
-| Field | Type | Description | Constraints |
+| Column Name | Data Type | Constraints | Description |
 |---|---|---|---|
-| `_id` | `ObjectId` | Primary key of the audit log document | Generated automatically |
-| `action` | `String` | Action performed (e.g., `"cancel_order"`) | Required |
-| `performedBy` | `ObjectId` | Reference to user executing transaction | Required |
-| `targetType` | `String` | String collection category of item | Required |
-| `targetId` | `ObjectId` | ID referencing exact modified document | Required, Compound index with `targetType` |
-| `metadata` | `Object` | Context values (e.g., previous state values) | Required |
-| `createdAt` | `Date` | Timestamp of creation | Set automatically, can have TTL |
+| `id` | `UUID` | PRIMARY KEY | Unique review identifier |
+| `order_id` | `UUID` | UNIQUE, FOREIGN KEY -> `orders` ON DELETE CASCADE| Rated order (max 1 review per order) |
+| `customer_id` | `UUID` | FOREIGN KEY -> `users` ON DELETE RESTRICT | Author customer |
+| `store_id` | `UUID` | FOREIGN KEY -> `stores` ON DELETE CASCADE | Targeted store |
+| `stars` | `INTEGER` | CHECK (stars BETWEEN 1 AND 5) | Review rating score (1-5) |
+| `comment` | `TEXT` | NOT NULL | Customer text comment |
+| `created_at` | `TIMESTAMP WITH TZ`| NOT NULL, DEFAULT `NOW()` | Review submitted timestamp |
 
 ---
 
-## 10. `notifications`
+### 3.9 `refresh_tokens`
+Houses database-stored hashes of JWT refresh tokens to support revoking and secure logouts.
 
-### Document Structure
-```javascript
-{
-  _id: ObjectId,
-  userId: ObjectId,              // Reference to 'users'
-  title: String,
-  content: String,
-  type: String,                  // "order_status" | "promotion" | "system"
-  status: String,                // "unread" | "read"
-  metadata: {                    // Optional extra contextual metadata
-    orderId: ObjectId,           // Reference to 'orders'
-    storeId: ObjectId            // Reference to 'stores'
-  },
-  createdAt: Date,
-  readAt: Date                   // Nullable. Timestamp when user read the notification
-}
-```
-
-### Field Definitions
-| Field | Type | Description | Constraints |
+| Column Name | Data Type | Constraints | Description |
 |---|---|---|---|
-| `_id` | `ObjectId` | Primary key of the notification document | Generated automatically |
-| `userId` | `ObjectId` | Reference to recipient user | Required, Compound index with `status` and `createdAt` |
-| `title` | `String` | Brief notification summary title | Required |
-| `content` | `String` | Detailed body message of notification | Required |
-| `type` | `String` | Category group of notification | Enum: `"order_status"`, `"promotion"`, `"system"` |
-| `status` | `String` | Read status tracking flag | Enum: `"unread"`, `"read"`. Default: `"unread"` |
-| `metadata` | `Object` | Context metadata containing key IDs | Optional |
-| `createdAt` | `Date` | Timestamp of creation | Set automatically, TTL index of 30 days |
-| `readAt` | `Date` | Timestamp when user marked notification as read | Nullable |
+| `id` | `UUID` | PRIMARY KEY | Unique record identifier |
+| `user_id` | `UUID` | FOREIGN KEY -> `users` ON DELETE CASCADE | User owner of token |
+| `token_hash` | `VARCHAR(255)` | UNIQUE, NOT NULL | Hashed refresh token value |
+| `is_revoked` | `BOOLEAN` | NOT NULL, DEFAULT `false` | Boolean indicating if token has been explicitly invalidated |
+| `expires_at` | `TIMESTAMP WITH TZ`| NOT NULL | Expiration date boundary |
+| `created_at` | `TIMESTAMP WITH TZ`| NOT NULL, DEFAULT `NOW()` | Token generated timestamp |

@@ -2,7 +2,7 @@
 
 ## 1. Purpose of This Document
 
-While `project-overview.md` explains **what** the project is and **how to run it**, this document explains **how the codebase is organized internally**: layering, module structure, the repository pattern, the shared integrations layer, and the conventions every module must follow.
+While `project-overview.md` explains **what** the project is and **how to run it**, this document explains **how the codebase is organized internally**: layering, module structure, the repository pattern, the local authentication layer, and the conventions every module must follow.
 
 ---
 
@@ -10,24 +10,25 @@ While `project-overview.md` explains **what** the project is and **how to run it
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                        Client (Web/Mobile)                    │
+│                        Client (Web/Mobile)                  │
+│                        (Stateful Cart)                      │
 └───────────────────────────┬─────────────────────────────────┘
-                             │ HTTP / WebSocket
+                             │ HTTP (REST)
 ┌───────────────────────────▼─────────────────────────────────┐
-│                         NestJS Application                    │
-│                                                                 │
-│  Guards → Interceptors → Pipes → Controller → Service →       │
-│  Repository (interface) → Repository (impl)                    │
-│                                                                 │
-│  Cross-cutting: Exception Filters, Response Interceptor,      │
-│  Swagger Decorators, Rate Limiting, Audit Logging              │
-│  Shared Integrations: Clerk (auth), Cloudinary (storage),      │
-│  Mail (transactional email)                                    │
-└──────────────┬───────────────────────────────┬───────────────┘
-               │ Mongoose                       │ HTTPS (third-party APIs)
-┌──────────────▼──────────────┐   ┌─────────────▼───────────────┐
-│           MongoDB             │   │  Clerk / Cloudinary / Mail   │
-└──────────────────────────────┘   └──────────────────────────────┘
+│                         NestJS Application                  │
+│                                                             │
+│  Guards → Interceptors → Pipes → Controller → Service →     │
+│  Repository (interface) → Repository (impl)                 │
+│                                                             │
+│  Cross-cutting: Exception Filters, Response Interceptor,   │
+│  Swagger Decorators, Rate Limiting, Custom JWT Auth         │
+│  Local Integrations: Local Storage Service (Multer)         │
+└──────────────┬───────────────────────────────┬──────────────┘
+               │ SQL Queries (TypeORM / Prisma) │
+┌──────────────▼──────────────┐                │
+│         PostgreSQL          │◄───────────────┘
+│      Relational DB          │
+└─────────────────────────────┘
 ```
 
 The system follows NestJS's standard layered architecture:
@@ -35,23 +36,22 @@ The system follows NestJS's standard layered architecture:
 | Layer | Responsibility |
 |---|---|
 | **Controller** | Route definitions, request/response shape, applies guards/pipes/Swagger decorators |
-| **Service** | Business logic (voucher calculation, order state transitions, RBAC checks) — depends only on a repository **interface** and on shared-integration **interfaces**, never on Mongoose or a third-party SDK directly |
-| **Repository (interface)** | Defines the contract for data access (`findById`, `create`, `paginate`, etc.) — no Mongoose types leak through it |
-| **Repository (implementation)** | Mongoose-based implementation of the interface — the only layer allowed to import a Mongoose `Model` and write queries |
-| **Schema/Model** | Mongoose schema definition, indexes |
+| **Service** | Business logic (order state transitions, RBAC checks, password hashing) — depends only on a repository **interface** or core service interfaces, never on raw database models directly |
+| **Repository (interface)** | Defines the contract for data access (`findById`, `create`, `paginate`, etc.) — decouples service logic from database library queries |
+| **Repository (implementation)** | SQL-based implementation of the interface (e.g. using TypeORM or Prisma) — the only layer writing SQL queries or using ORM managers |
+| **Entity / Model** | Database mapping definition (e.g., TypeORM `@Entity` class or Prisma model) |
 | **DTO** | Input validation (`class-validator`) and Swagger schema (`@ApiProperty`) |
-| **Guard** | Authentication (Clerk session verification) and authorization (role-based, ownership-based) |
-| **Interceptor** | Response transformation, logging, timeout |
-| **Pipe** | Validation & transformation of incoming data |
-| **Filter** | Unified error response shape |
+| **Guard** | Authentication (custom JWT verification) and authorization (role-based, store-membership based) |
+| **Interceptor** | Response transformation (Unified Response Format) |
+| **Pipe** | Validation & transformation of incoming request payloads |
+| **Filter** | Unified exception and error response shape |
 | **Swagger Decorator** | Per-endpoint API documentation metadata |
-| **Shared Integration** | Wrapper around a third-party service (Clerk, Cloudinary, Mail), exposed to the rest of the app through an interface |
 
 ---
 
 ## 3. Module Structure (Feature Modules)
 
-Every feature module (`stores`, `orders`, `products`, `vouchers`, etc.) is self-contained and follows the same internal structure. This keeps modules independent and makes it obvious where to add new code.
+Every feature module (`stores`, `orders`, `products`, `auth`, `users`, etc.) is self-contained and follows the same internal structure.
 
 ```
 src/modules/stores/
@@ -60,96 +60,49 @@ src/modules/stores/
 ├── stores.service.ts
 ├── dto/
 │   ├── create-store.dto.ts
-│   ├── update-store.dto.ts
-│   └── pause-store.dto.ts
-├── schemas/
-│   └── store.schema.ts
-├── repositories/                 ← data-access layer (interface + Mongoose impl)
+│   └── update-store.dto.ts
+├── entities/                    ← Database mapping entity (or prisma client references)
+│   └── store.entity.ts
+├── repositories/                 ← data-access layer (interface + SQL impl)
 │   ├── store.repository.interface.ts
 │   ├── store.repository.ts
 │   └── store.repository.spec.ts
 ├── decorators/                   ← Swagger documentation only (see §3.1)
 │   ├── index.ts
 │   ├── create-store.swagger.ts
-│   ├── update-store.swagger.ts
-│   ├── pause-store.swagger.ts
-│   └── delete-store.swagger.ts
+│   └── update-store.swagger.ts
 ├── guards/                        ← module-scoped authorization logic (see §3.2)
-│   └── store-owner.guard.ts
+│   └── store-staff.guard.ts
 └── stores.controller.spec.ts
 ```
 
 ### 3.1 The `decorators/` folder is Swagger-only
 
-Each module's `decorators/` folder exists **only** to hold per-endpoint Swagger documentation decorators — one file per endpoint (`create-store.swagger.ts`, `pause-store.swagger.ts`, and so on), each bundling everything Swagger needs for that route (`@ApiOperation`, `@ApiResponse`, `@ApiParam`, error responses) into a single decorator applied on the controller method. A barrel `index.ts` re-exports all of them so a controller only needs one import line.
-
-Naming convention: `*.swagger.ts` — this makes it immediately obvious, next to a controller method, which decorator is documentation-only versus which one affects request handling (guards, pipes).
-
-**Reusable vs. module-specific Swagger decorators:**
-
-- Used across 2+ modules (e.g. a generic paginated-response wrapper, or a bundle of standard error responses used everywhere) → `src/common/decorators/swagger/`
-- Specific to one endpoint of one module → `src/modules/<module>/decorators/`
-
-This module-level `decorators/` folder does **not** hold behavior-changing decorators (parameter extraction, ownership metadata, etc.) — that kind of domain logic now lives directly inside the module's `guards/` folder instead, described next.
+Each module's `decorators/` folder exists **only** to hold per-endpoint Swagger documentation decorators — one file per endpoint (`create-store.swagger.ts`, etc.), each bundling everything Swagger needs for that route (`@ApiOperation`, `@ApiResponse`, etc.) into a single decorator applied on the controller method. A barrel `index.ts` re-exports all of them.
 
 ### 3.2 The `guards/` folder holds module-scoped authorization logic
 
-Any authorization check that's specific to one module's domain (for example, confirming the current user actually owns *this particular* store, not just that their role is `owner`) is implemented as a self-contained guard in that module's `guards/` folder. It reads whatever it needs directly from the request (route params, the authenticated user attached by the global auth guard) without requiring a companion decorator — keeping the module lean to just two concerns: Swagger docs and authorization.
-
-Module-scoped guards run *after* the common, app-wide guards (Clerk session check, global role check) in the guard chain — see §7 for the full request lifecycle.
+Any authorization check that is specific to a module's domain (for example, confirming a Staff user is actually assigned to *this specific* store, and not another store) is implemented as a self-contained guard in that module's `guards/` folder. It reads route parameters and the user payload attached to the request by the global auth guard.
 
 ---
 
 ## 4. Repository Layer
 
-**Goal:** services should never talk to Mongoose directly. Every module that touches the database defines a **repository interface** describing what data operations are available (`findById`, `findByOwnerId`, `paginate`, `create`, `updateById`, `softDeleteById`, etc.), and a **Mongoose-based implementation** of that interface. The service depends on the interface only, injected through a dedicated token — which keeps business logic testable and decoupled from the persistence technology.
+**Goal:** services should never query the database directly. Every module that touches the database defines a **repository interface** describing what data operations are available (`findById`, `paginate`, `create`, `updateById`, etc.), and a **SQL-based implementation** of that interface (using TypeORM/Prisma).
 
 **File layout**, per module:
-
-- `repositories/<name>.repository.interface.ts` — the contract, plus the injection token used to bind it in the module's providers. Contains no Mongoose types.
-- `repositories/<name>.repository.ts` — the Mongoose implementation; the only file in the module allowed to import a Mongoose `Model` and write actual queries.
-- `repositories/<name>.repository.spec.ts` — unit tests, typically written against the interface with a mocked implementation.
-
-**Why bother with an interface** instead of injecting the Mongoose model straight into the service:
-
-- **Testability** — unit tests mock the repository interface with a plain stub, no need to spin up MongoDB or mock Mongoose's chainable query API. This is what makes the 70% coverage target on services realistic.
-- **Decoupling** — business logic has zero knowledge of Mongoose. If the persistence layer ever changes, only the repository implementation changes.
-- **Single responsibility** — query logic (filters, pagination, projections) lives in one place per module instead of being scattered across service methods.
-- **Consistent contract** — every module's repository exposes a predictable shape, which makes onboarding to a new module faster.
-
-**Optional base repository:** if most repositories share the same CRUD shape (`findById`, `updateById`, `softDeleteById`), that shared behavior can be extracted into a generic base class under `src/common/repositories/`, extended by each module's concrete repository. Each module's own interface can likewise extend a shared base interface for the common methods and add module-specific ones on top.
+- `repositories/<name>.repository.interface.ts` — the contract. Contains no ORM-specific details.
+- `repositories/<name>.repository.ts` — the ORM implementation; the only file in the module allowed to write SQL/ORM queries.
+- `repositories/<name>.repository.spec.ts` — unit tests against the repository interface using mock stubs.
 
 ---
 
-## 5. Shared Integrations Layer (Third-Party Services)
+## 5. Local Integrations & Custom Services
 
-**Goal:** third-party services that aren't owned by any single business domain — authentication (Clerk), file storage (Cloudinary/S3), and transactional email (Mail) — get one shared home instead of being duplicated or awkwardly imported across unrelated feature modules.
+Unlike environments using external providers, this MVP implements core services locally:
 
-```
-src/integrations/
-├── clerk/
-│   ├── clerk.module.ts
-│   ├── clerk.service.ts               # wraps Clerk SDK: verify session, fetch user, handle webhooks
-│   └── clerk.service.interface.ts
-├── cloudinary/
-│   ├── cloudinary.module.ts
-│   ├── cloudinary.service.ts
-│   └── cloudinary.service.interface.ts   # swappable for an S3 implementation later
-└── mail/
-    ├── mail.module.ts
-    ├── mail.service.ts
-    └── mail.service.interface.ts
-```
-
-Each integration follows the same interface-behind-a-token pattern already used for repositories (§4): consumers depend on `IStorageService` or `IMailService`, not on the Cloudinary or nodemailer SDK directly. This means swapping Cloudinary for S3, or one mail provider for another, only touches the corresponding folder under `integrations/`.
-
-**How feature modules use this layer:**
-
-- Any module that accepts an image upload (`stores`, `products`, `users`' avatar) depends on the storage interface exported by `integrations/cloudinary/`.
-- Any module that needs to send a transactional email (order confirmation, account notices) depends on the mail interface exported by `integrations/mail/`.
-- The global authentication guard in `common/guards/` depends on `integrations/clerk/` to verify the incoming session and resolve the caller's identity. Clerk owns authentication and identity; it does **not** own the platform's domain-specific role (`customer`/`staff`/`owner`/`admin`) — that still lives on the app's own `User` record, kept in sync with Clerk via webhook (handled by `clerk.service.ts`) whenever a user is created or updated on Clerk's side.
-
-**Rule of thumb for what belongs in `integrations/` vs. a feature module:** if the thing you're wrapping is a call to an external vendor's API/SDK, it belongs in `integrations/`. If it's domain logic that happens to use one of those integrations, it stays in the feature module's service and simply injects the integration's interface.
+- **Custom JWT Auth:** Rather than using external identity services (like Clerk), the authentication module handles registration (bcrypt hashing), credentials login, JWT token emission (Access + Refresh tokens), and database session tracking (to blacklist/revoke tokens).
+- **Local File Uploads:** Uploaded files (product images) are parsed using `multer` via NestJS's upload interceptors. Validated files are saved locally to `/uploads/` and mapped to HTTP static paths for serving.
 
 ---
 
@@ -158,48 +111,39 @@ Each integration follows the same interface-behind-a-token pattern already used 
 ```
 src/common/
 ├── decorators/
-│   ├── auth.decorator.ts          # composes the Clerk auth guard + role guard + Swagger auth marker
-│   ├── current-user.decorator.ts  # extracts the resolved user from the request
-│   ├── roles.decorator.ts         # sets role metadata read by the global RolesGuard
-│   ├── public.decorator.ts        # marks a route as not requiring authentication
-│   └── swagger/                    # reusable, app-wide Swagger decorators
-│       ├── index.ts
-│       ├── api-paginated-response.decorator.ts
-│       └── api-standard-errors.decorator.ts
+│   ├── auth.decorator.ts          # Composes JWT auth guard + role guard + Swagger auth marker
+│   ├── current-user.decorator.ts  # Extracts the parsed user from the request
+│   ├── roles.decorator.ts         # Sets role metadata read by the global RolesGuard
+│   ├── public.decorator.ts        # Marks a route as not requiring authentication
+│   └── swagger/                   # Reusable app-wide Swagger decorators
 ├── guards/
-│   ├── clerk-auth.guard.ts         # verifies the Clerk session, attaches the resolved user
-│   └── roles.guard.ts              # checks the user's domain role against @Roles()
+│   ├── jwt-auth.guard.ts          # Verifies the custom JWT token, attaches user payload
+│   └── roles.guard.ts             # Checks the user's role against @Roles()
 ├── interceptors/
-│   ├── response.interceptor.ts     # wraps every response in the unified format
-│   └── logging.interceptor.ts
+│   └── response.interceptor.ts    # Wraps responses in the unified format
 ├── filters/
-│   └── http-exception.filter.ts    # unified error shape
+│   └── http-exception.filter.ts   # Unified error response formatter
 ├── pipes/
 │   └── validation.pipe.ts
-├── repositories/
-│   └── base.repository.ts          # optional shared CRUD base (see §4)
 └── dto/
     ├── pagination-query.dto.ts
     └── paginated-response.dto.ts
 ```
 
-**Rule of thumb:** if a guard/interceptor/behavior-decorator is used by **2+ modules**, it belongs in `common/`. If it's specific to one module's domain logic, it belongs in that module's own `guards/` folder (behavior) or `decorators/` folder (Swagger only).
-
 ---
 
 ## 7. Request Lifecycle Example
 
-Example: `PATCH /api/v1/stores/:id/pause` (owner-only action)
+Example: `PATCH /api/v1/products/:id` (Staff-only product update)
 
-1. **Guard** — the global Clerk auth guard verifies the session via the `clerk` integration and attaches the resolved user (including domain role) to the request.
-2. **Guard** — the global roles guard reads the metadata set by the role requirement on the route and checks the user's domain role is `owner`.
-3. **Guard** (module-scoped) — the store-ownership guard checks that the authenticated user actually owns the specific store referenced by the route, not just any store.
-4. **Pipe** — validates the route param and request body against the relevant DTO.
-5. **Controller** — resolves the current user and route param, then calls into the store service's pause operation.
-6. **Service** — business logic: checks the store's current status, decides the new status, writes an audit log entry — calling the repository through its interface, never Mongoose directly.
-7. **Repository** — the Mongoose implementation runs the actual update query against MongoDB and returns a plain result.
-8. **Interceptor** — the response interceptor wraps the returned data into the unified response format.
-9. **Filter** — if any step throws, the exception filter formats the unified error response.
+1. **Guard** — The global `JwtAuthGuard` verifies the Access Token, checks the database to verify the user is not banned, and attaches the user payload to the request.
+2. **Guard** — The global `RolesGuard` reads the metadata set by `@Roles('staff')` and confirms the caller's role is `staff` (or `admin`).
+3. **Guard** (module-scoped) — The `StoreStaffGuard` verifies that the `store_id` associated with the product matches the `store_id` of the authenticated Staff user.
+4. **Pipe** — Validates request body properties (e.g. `price >= 0`) using `class-validator` based on DTO specs.
+5. **Controller** — Executes the endpoint method, passing parameters to the service layer.
+6. **Service** — Applies business logic and invokes the repository interface.
+7. **Repository** — Runs the update query against PostgreSQL database and returns the result.
+8. **Interceptor** — Wraps the response in the unified response format.
 
 ---
 
@@ -207,83 +151,19 @@ Example: `PATCH /api/v1/stores/:id/pause` (owner-only action)
 
 | Role | Guard chain used |
 |---|---|
-| `customer` | Global Clerk auth guard + global roles guard (`customer`) |
-| `staff` | Global Clerk auth guard + global roles guard (`staff`, `owner` on shared endpoints) |
-| `owner` | Global Clerk auth guard + global roles guard (`owner`-only on delete/pause/resume) + module-scoped store-ownership guard (ensures ownership of *that specific* store) |
-| `admin` | Global Clerk auth guard + global roles guard (`admin`) |
+| `customer` | `JwtAuthGuard` + `RolesGuard` (`customer`) |
+| `staff` | `JwtAuthGuard` + `RolesGuard` (`staff`) + `StoreStaffGuard` (verifies access to specific store resource) |
+| `admin` | `JwtAuthGuard` + `RolesGuard` (`admin`) |
 
-The global roles guard only checks the user's **domain role**, as stored on the app's own `User` record (synced from Clerk). For per-resource ownership checks (e.g. "is this user the owner of *this* store?"), a dedicated module-scoped guard is used instead of overloading the generic roles guard.
+- For ownership/membership checks (e.g. "does this staff member belong to the store owning this product?"), a dedicated module-scoped guard is chained after the roles guard.
 
 ---
 
 ## 9. Database Layer
 
-- Each module owns its schema(s) under `modules/<module>/schemas/`, and its repository under `modules/<module>/repositories/` (see §4).
-- Schemas are only ever imported by that module's own repository — services and controllers never import a Mongoose schema/model directly.
-- Shared/base schema logic (e.g. timestamps, soft-delete fields) can live in `src/database/schemas/base.schema.ts` and be extended by module schemas.
-- Indexes are declared directly on the schema, not created manually in the database.
-
-```
-src/database/
-└── schemas/
-    └── base.schema.ts     # common fields: createdAt, updatedAt, deletedAt
-```
-
----
-
-## 10. Naming Conventions Recap
-
-| Artifact | Convention | Example |
-|---|---|---|
-| Swagger decorator file (module) | `*.swagger.ts` | `pause-store.swagger.ts` |
-| Behavior decorator file (common only) | `*.decorator.ts` | `current-user.decorator.ts` |
-| Guard file | `*.guard.ts` | `store-owner.guard.ts` |
-| Interceptor file | `*.interceptor.ts` | `response.interceptor.ts` |
-| DTO file | `*.dto.ts` | `pause-store.dto.ts` |
-| Schema file | `*.schema.ts` | `store.schema.ts` |
-| Repository interface file | `*.repository.interface.ts` | `store.repository.interface.ts` |
-| Repository implementation file | `*.repository.ts` | `store.repository.ts` |
-| Repository injection token | `SCREAMING_SNAKE_CASE` symbol | `STORE_REPOSITORY` |
-| Shared integration service file | `<vendor>.service.ts` | `cloudinary.service.ts` |
-| Shared integration interface file | `<vendor>.service.interface.ts` | `mail.service.interface.ts` |
-
----
-
-## 11. Summary: Where Does My New Swagger Decorator Go?
-
-```
-Is it reusable across 2+ modules?
- ├── Yes → src/common/decorators/swagger/
- └── No  → src/modules/<your-module>/decorators/
-```
-
-Anything that changes request/execution behavior instead of documentation (a new authorization rule, a new parameter resolver) is not a decorator in this architecture — it belongs in a guard, following the rule in §3.2 and §6.
-
----
-
-## 12. Summary: Where Does My New Repository Go?
-
-```
-Does the module access MongoDB?
- └── Yes → src/modules/<module>/repositories/
-             ├── <name>.repository.interface.ts   (the contract + DI token)
-             └── <name>.repository.ts             (Mongoose implementation)
-
-Services inject the INTERFACE (via the token), never the Mongoose Model directly.
-```
-
----
-
-## 13. Summary: Where Does My New Shared Integration Go?
-
-```
-Am I wrapping a call to an external vendor's SDK/API
-(auth, storage, email, payments, SMS, etc.)?
- ├── Yes → src/integrations/<vendor>/
- │          ├── <vendor>.service.interface.ts   (the contract + DI token)
- │          └── <vendor>.service.ts             (the actual SDK call)
- │
- └── No (it's domain logic that happens to use an integration)
-        → stays in the feature module's own service,
-          which injects the integration's interface
-```
+- Relational schemas are defined in the database database model/entities (e.g. `prisma/schema.prisma` or module `*.entity.ts` files).
+- Schema indexes are configured at the database schema layer on query-heavy columns:
+  - `users`: index on `email` (login lookup) and `store_id` (staff list).
+  - `stores`: index on `is_open` and `is_locked` (discovery filter).
+  - `products`: index on `store_id`, `status` (menu lookup).
+  - `orders`: index on `customer_id` (history), `store_id` (dashboard), and `order_code` (lookup).

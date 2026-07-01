@@ -2,9 +2,9 @@
 
 ## 1. Purpose of This Document
 
-`project-overview.md` explains **what** the project is and how to run it. `architecture.md` explains **how the codebase is structured**. This document explains **the order in which things get built** and **why** — the macro-strategy.
+[project-overview.md](file:///d:/Dowload/Dekon/beverage-ordering-system/documents/project-overview.md) explains **what** the project is and how to run it. [architecture.md](file:///d:/Dowload/Dekon/beverage-ordering-system/documents/architecture.md) explains **how the codebase is organized internally**. This document explains **the phases in which features are built** and **what tasks are required to complete each milestone**.
 
-Its job is to prevent scope creep: at any point in the project, this file should answer "what phase are we in, what's actually in scope right now, and what is intentionally deferred." When picking up a task, check which phase it belongs to before starting — work that clearly belongs to a later phase should be flagged, not silently pulled forward.
+Its job is to prevent scope creep: at any point in the project, this file should answer "what phase are we in, what's actually in scope right now, and what is intentionally deferred."
 
 **Status legend:** ⬜ Not started · 🟨 In progress · ✅ Done
 
@@ -14,189 +14,153 @@ Its job is to prevent scope creep: at any point in the project, this file should
 
 ```
 Phase 0 → Phase 1 → Phase 2 → Phase 3 → Phase 4 → Phase 5 → Phase 6 → Phase 7 → Phase 8 → Phase 9
-Foundation  Auth      Catalog   Ordering  Order     Ratings   Admin     Owner     Hardening  Release
-                                          Lifecycle  & Reports           Actions
+Setup     Auth      Catalog   Ordering  Lifecycle Ratings   Admin     Uploads   Hardening Release
 ```
-
-Phases are mostly sequential — each one depends on the data models and conventions established by the previous one — but phases 5 and 6 can be developed in parallel once Phase 4 is stable, since Admin reporting only reads data that Phase 1–4 already produce.
 
 ---
 
-## 3. Milestones
+## 3. Milestones & Phases
 
 ### Phase 0 — Foundation & Project Setup ⬜
 
-**Goal:** a running skeleton that every later phase builds on. No business features yet.
+**Goal:** A running PostgreSQL-backed skeleton that every later phase builds on. No business features yet.
 
-- [ ] NestJS project scaffolding, module folder convention (see `architecture.md` §3)
-- [ ] `common/` cross-cutting layer: `ResponseInterceptor`, `HttpExctionPipe`
+- [ ] NestJS project scaffolding, module folder convention (see [architecture.md](file:///d:/Dowload/Dekon/beverage-ordering-system/documents/architecture.md) §3)
+- [ ] Connect database connection with PostgreSQL using Prisma or TypeORM
+- [ ] `common/` cross-cutting layer: `ResponseInterceptor`, `HttpExceptionFilter`, validation pipes
 - [ ] Unified pagination DTOs (`PaginationQueryDto`, `PaginatedResponseDto`) — offset-based
-- [ ] Swagger bootstrap at `/api/docs`, plus the `common/decorators/swagger/` convention
-- [ ] Docker Compose (`api` + `mongo`) runnable locally by a reviewer with just `.env.example`
-- [ ] `.env.example` with every variable used by later phases stubbed in
+- [ ] `BaseRepository<T>` pattern (interface + SQL mapper implementation)
+- [ ] Swagger bootstrap at `/api/docs` and configuration
+- [ ] Docker Compose (`api` + `postgres`) runnable locally with just `.env.example`
+- [ ] `.env.example` with every environment variable stubbed in
 
-**Exit criteria:** `docker compose up` gives a working app with an empty Swagger page and a passing (trivial) test suite.
+**Exit criteria:** `docker compose up` gives a working app with an empty Swagger page and passing tests.
 
 ---
 
 ### Phase 1 — Auth & User Management ⬜
 
-**Goal:** every role (`customer`, `staff`, `owner`, `admin`) can be created, authenticated, and identified on every request.
+**Goal:** Create accounts, log in, and authenticate users with custom JWT tokens.
 
-- [ ] User schema + repository (shared collection, discriminated by `role`)
-- [ ] Registration (email/password or phone), validation, duplicate check
-- [ ] Email OTP / verification link — unverified accounts cannot order
-- [ ] Login with JWT (access + refresh token), logout (client-side token clear)
-- [ ] Forgot / reset password via OTP
-- [ ] `JwtAuthGuard`, `RolesGuard`, `@Roles()`, `@Auth()`, `@CurrentUser()` (see `architecture.md` §5)
-- [ ] Profile: view/update info, change avatar (upload validation, see Phase 8), change password
-- [ ] Address book (Customer): add/edit/delete address, set default
-- [ ] Login rate limiting (5 failed attempts → 15 min lock)
+- [ ] User schema mapping + repository (distinguished by `role`)
+- [ ] Custom registration endpoint (email and password), credentials validation, duplicate email check
+- [ ] Credentials login returning custom JWT Access Token and Refresh Token
+- [ ] Refresh token storage/hashing in database to support revocation checks
+- [ ] API refresh token endpoint to reissue access tokens when expired
+- [ ] Logout API that invalidates/revokes the refresh token from the database
+- [ ] Authentication and role guards (`JwtAuthGuard`, `RolesGuard`, `@Roles()`, `@Auth()`, `@CurrentUser()`)
+- [ ] Profile management endpoints: view profile details, update profile information, change password
+- [ ] Customer address book: add, edit, delete delivery addresses, set default address
 
-**Exit criteria:** all four roles can register/login and hit a protected `/me` endpoint that correctly reflects their role.
-
-**Depends on:** Phase 0.
+**Exit criteria:** Users can sign up, log in, manage their profiles, and hit secure endpoints using JWT authorization.
 
 ---
 
 ### Phase 2 — Store & Catalog Management ⬜
 
-**Goal:** Staff/Owner can fully manage what a store sells.
+**Goal:** Allow Staff to configure store details, categories, and products.
 
-- [ ] Store schema + repository, store profile CRUD (name, phone, address, avatar/cover)
-- [ ] Store status: open / temporarily closed (day-to-day toggle, distinct from Phase 7's pause)
-- [ ] Category CRUD + display order (delete only if empty)
-- [ ] Product (menu item) CRUD: name, description, price, image, category, visibility (visible/hidden/out-of-stock)
-- [ ] Option groups (Size, Topping, Sugar level, Ice level): required-single vs. multi-select, price deltas
-- [ ] `store-owner.guard.ts` / `is-store-owner.decorator.ts` (module-scoped, see `architecture.md` §3)
+- [ ] Store mapping + repository, store profile details updates
+- [ ] Store status toggle: open / temporarily closed status indicators
+- [ ] Category CRUD operations (block deletion if categories contain active products)
+- [ ] Product CRUD: name, description, price, category, status (active, hidden, out-of-stock)
+- [ ] `store-staff.guard.ts` (verifies Staff user is assigned to the store they are managing)
+- [ ] Product constraints check (block products with price < 0)
 
-**Exit criteria:** a Staff or Owner account can build a full menu with option groups end-to-end, visible correctly to Customers.
-
-**Depends on:** Phase 1 (roles + auth).
+**Exit criteria:** Staff can set up their store, create category folders, and build a menu of catalog products.
 
 ---
 
 ### Phase 3 — Customer Ordering Flow ⬜
 
-**Goal:** a Customer can go from browsing to a placed order.
+**Goal:** Allow Customers to discover products and checkout using Cash on Delivery (COD).
 
-- [ ] Store discovery: list (open/closed filter), search by name
-- [ ] Product search across the platform
-- [ ] Store detail page data, category list, product detail
-- [ ] Cart: add item with selected options, update quantity, remove item/clear cart
-- [ ] Single-store cart constraint (prompt to clear cart when switching stores)
-- [ ] Voucher: list valid vouchers for a store, apply/validate against subtotal
-- [ ] Checkout: pick address, COD payment, place order (`pending`), generate short order code
-- [ ] Voucher usage count decremented atomically on successful order placement
+- [ ] Store discovery: list stores (open/closed filters), search by name
+- [ ] Product search and category filters across stores
+- [ ] Store detail and product detail retrieval APIs
+- [ ] Frontend-driven cart support (checkout takes a list of products directly in requests)
+- [ ] Single-store purchase constraint (checkout rejected if items span multiple stores)
+- [ ] Checkout endpoint: receiver contact info input, delivery address selection, COD payment validation
+- [ ] Order generation: create order in `pending` status, copy snapshot product names/prices to `order_items`, generate short order lookup code
 
-**Exit criteria:** a Customer can place a real order that lands in the target store's dashboard as `pending`.
-
-**Depends on:** Phase 1, Phase 2.
-
-**⚠️ Note:** online payment gateways are explicitly **out of scope** here — COD only (see backlog, §5).
+**Exit criteria:** Customers can browse menus, manage a virtual cart, and submit checkout orders to a store.
 
 ---
 
-### Phase 4 — Order Lifecycle & Realtime ⬜
+### Phase 4 — Order Lifecycle & Management ⬜
 
-**Goal:** orders move through their full lifecycle with both sides kept in sync live.
+**Goal:** Process orders through their lifecycle and track order history.
 
-- [ ] Order state machine: `pending → preparing → ready → completed`, plus `cancelled`
-- [ ] Customer: view active orders, order history, order detail, cancel (only while `pending`, reason required)
-- [ ] Staff/Owner: view/filter orders, accept (`pending → preparing`), advance state, cancel with reason (any state before `completed`)
-- [ ] WebSocket gateway: push new order to Staff/Owner, push status updates to Customer
-- [ ] Auto-cancel job: `pending` orders older than `ORDER_AUTO_CANCEL_MINUTES` auto-cancel with reason "Store did not respond"
-- [ ] Audit log entries for cancellations and state changes
+- [ ] Order state machine transitions: `pending → preparing → completed` and `cancelled`
+- [ ] Customer order tracking: view active orders, order history list (offset-based pagination), cancel order (while `pending` state only, requires reason)
+- [ ] Staff order dashboard: view/filter store orders, accept orders (`pending → preparing`), mark completed (`preparing → completed`), cancel orders with reasons
+- [ ] State validation: prevent invalid transitions (e.g. Completed to Preparing)
 
-**Exit criteria:** an order placed in Phase 3 can be fully processed to `completed` or `cancelled`, with both sides seeing live updates and no order silently stuck in `pending`.
-
-**Depends on:** Phase 3.
+**Exit criteria:** Placed orders can be successfully accepted, processed to completion, or cancelled with reasons.
 
 ---
 
 ### Phase 5 — Ratings & Store Reports ⬜
 
-**Goal:** feedback loop and store-level business insight.
+**Goal:** Customer reviews feedback loop and store revenue reports.
 
-- [ ] Rating: 1–5 stars + short comment, only after `completed`, one rating per order
-- [ ] Average rating surfaced on store detail page
-- [ ] Store revenue stats (today / this week / this month / custom range)
-- [ ] Order stats (completed vs. cancelled counts)
-- [ ] Top 5 best-selling products (chart-ready data)
+- [ ] Review/Rating: 1–5 stars + comment, allowed only for `completed` orders (max 1 review per order)
+- [ ] Average rating updates (recalculates store average rating and counts)
+- [ ] Store revenue analytics for Staff (completed order totals, cancel counts, date range filters)
 
-**Exit criteria:** a completed order can be rated, and a Staff/Owner dashboard shows accurate revenue + top-products numbers for a given date range.
-
-**Depends on:** Phase 4.
+**Exit criteria:** Completed orders can be rated, store profiles display average ratings, and Staff can check store metrics.
 
 ---
 
 ### Phase 6 — Admin Module ⬜
 
-**Goal:** platform-level oversight and moderation.
+**Goal:** Platform-level moderation, store onboarding, and system statistics.
 
-- [ ] Store list with status filter (active / locked / pending approval)
-- [ ] Create store flow: create store → create default Owner account → store starts as `pending_approval`
-- [ ] Approve / lock / unlock stores
-- [ ] Platform-wide order list, search by order code / customer / store, status-change history for dispute resolution
-- [ ] User management: list Customers/Staff/Owners, ban/unban
-- [ ] Platform-wide stats: total revenue, new signups by month, store revenue ranking
+- [ ] Store management: list stores, create new store, toggle lock/unlock stores
+- [ ] Staff management: create new Staff user accounts, assign them to a `store_id`
+- [ ] User management: list all system users, filter by roles, ban/unban accounts (banned users are blocked from logging in)
+- [ ] System-wide analytics (aggregate store counts, user counts, completed orders revenue totals)
 
-**Exit criteria:** Admin can onboard a new store end-to-end and investigate a disputed order using only in-app tools.
-
-**Depends on:** Phase 1–5 (reads data produced by all of them). Can start in parallel with Phase 5.
+**Exit criteria:** Admin can onboard stores, create staff users, manage account locks, and view platform revenues.
 
 ---
 
-### Phase 7 — Owner-Specific Store Actions ⬜
+### Phase 7 — File Upload Integration & Validation ⬜
 
-**Goal:** the extra authority that distinguishes `owner` from `staff`.
+**Goal:** Support product image uploads with strict format and size validation.
 
-- [ ] Delete store (soft-delete, `owner`-only, `StoreOwnerGuard`)
-- [ ] Pause store operation (stop accepting new orders — distinct from the open/closed toggle in Phase 2)
-- [ ] Resume store operation
-- [ ] Swagger docs + audit log entries for all three actions
-- [ ] RBAC unit tests proving `staff` is rejected on these three endpoints while `owner` succeeds
+- [ ] Multer middleware configuration in file upload module for product images
+- [ ] Local storage setup to save images to `/uploads` directory
+- [ ] Image validation: size limit ≤ 5MB, format check (png, jpg, jpeg, webp only)
+- [ ] Static files route mapping for serving uploaded media
 
-**Exit criteria:** an Owner can pause, resume, and delete their own store; a Staff account attempting the same gets a 403.
-
-**Depends on:** Phase 2 (store module must exist), Phase 1 (roles).
+**Exit criteria:** Products can successfully save and render local image file uploads.
 
 ---
 
-### Phase 8 — Hardening & Non-Functional Requirements ⬜
+### Phase 8 — Hardening & Optimizations ⬜
 
-**Goal:** the project meets the checklist bar for review, not just "works on my machine."
+**Goal:** Security, performance verification, and test coverage requirements.
 
-- [ ] Swagger coverage audit — every endpoint from Phase 1–7 documented (`@ApiOperation`, response types, error responses)
-- [ ] Unit test coverage ≥ 70% on business logic (voucher calc, order state machine, auto-cancel, upload validation, RBAC) — see `architecture.md` §4.6 on why the repository pattern makes this realistic
-- [ ] Upload validation finalized: 5MB limit, jpg/png/webp only, Cloudinary/S3 wired
-- [ ] Rate limiting finalized: 100 req/min/IP general, 5 failed logins/15 min lock
-- [ ] Audit log completeness pass across all mutating admin/owner/staff actions
-- [ ] MongoDB indexes verified (`Products` on `storeId`+`status`, `Orders` on `customerId`+`status`)
-- [ ] Docker Compose reviewed for a clean reviewer experience (`cp .env.example .env && docker compose up -d --build`)
-- [ ] README finalized per `project-overview.md` §11
-- [ ] Commit history conforms to Conventional Commits (retroactive cleanup if needed before submission)
+- [ ] Swagger coverage audit — document request/response details for every endpoint
+- [ ] Unit tests audit: verify at least 70% unit test coverage exists on `AuthService`, `ProductsService`, and `OrdersService`
+- [ ] General rate limiting verification: ensure general limits are active
+- [ ] Database indexes verification: check indexes on users (email), stores (status), products (store, status), and orders (customer, store, status)
 
-**Exit criteria:** all checklist items from `project-overview.md` §7–§9 are demonstrably true, not just "in progress."
-
-**Depends on:** all feature phases (0–7) being functionally complete.
+**Exit criteria:** Swagger is complete, test coverage meets the 70% threshold, and database/rate queries are optimized.
 
 ---
 
 ### Phase 9 — Deployment & Release ⬜
 
-**Goal:** the system is reachable outside a local machine.
+**Goal:** Production release configurations.
 
-- [ ] Production environment variables finalized and secured (no secrets in repo)
-- [ ] Production Dockerfile (multi-stage build, non-root user)
-- [ ] Deployment target chosen and configured (see Risk R8 below — not yet decided)
-- [ ] Health check endpoint for uptime monitoring
-- [ ] Basic logging/monitoring in production (at minimum: structured logs + error alerting)
-- [ ] Swagger disabled or protected in production per `architecture.md`/`project-overview.md` guidance
+- [ ] Production environment variables configurations (no credentials in repo)
+- [ ] Multi-stage production Dockerfile (non-root execution)
+- [ ] Uptime health check endpoint
+- [ ] Logging configuration
 
-**Exit criteria:** the system is running on a real URL, reachable by the intended reviewer/user base.
-
-**Depends on:** Phase 8.
+**Exit criteria:** Clean Docker Compose deploy runs without errors in production mode.
 
 ---
 
@@ -204,42 +168,18 @@ Phases are mostly sequential — each one depends on the data models and convent
 
 | # | Risk | Why it matters | Mitigation |
 |---|---|---|---|
-| R1 | **Voucher race condition** — two customers apply the same limited-use voucher simultaneously, both succeed, usage count exceeds the limit | Overselling a discount is a real business cost | Use an atomic Mongo update (`findOneAndUpdate` with a `usedCount < maxUsage` filter) instead of read-then-write; revisit in Phase 3 |
-| R2 | **Multi-document consistency** — placing an order touches `Orders`, `Vouchers` (usage count), and possibly `Carts` in one logical operation | MongoDB is not ACID-by-default across collections without transactions | Use Mongoose sessions/transactions (replica set required) for order placement in Phase 3; document the replica-set requirement in `docker-compose.yml` |
-| R3 | **Auto-cancel job timing drift** — a scheduled job checking every N minutes doesn't guarantee an exact 15-minute cutoff | Business rule says "15 minutes," not "15–20 minutes" | Accept a small tolerance window (e.g. run every 1 minute) and document the tolerance explicitly rather than promising exact timing |
-| R4 | **WebSocket scaling** — `@nestjs/websockets` gateway holds connections in-memory; multiple app instances won't share state | Fine for Phase 4 (single instance), breaks silently if the app is ever scaled horizontally in Phase 9 | Flag explicitly at Phase 9: adopt a Redis adapter for Socket.IO before scaling beyond one instance |
-| R5 | **JWT refresh token revocation** — stateless JWTs can't be invalidated server-side by default | A stolen/leaked refresh token stays valid until expiry even after "logout" | Decide in Phase 1 whether to accept this limitation for MVP or add a refresh-token denylist collection |
-| R6 | **Upload validation bypass** — client-side MIME type is not trustworthy | A renamed malicious file could pass a naive extension check | Validate actual file signature/magic bytes server-side, not just the extension, in Phase 8 |
-| R7 | **70% coverage target on repository-heavy code** — repositories are thin wrappers around Mongoose and are low-value to unit test exhaustively | Chasing coverage % on repositories wastes effort that should go to service-layer business logic | Coverage strategy: prioritize services (voucher calc, state machine, RBAC) for depth; repositories get lighter/integration-style coverage — clarify in Phase 8 rather than late in the project |
-| R8 | **Deployment target undecided** | Blocks Phase 9 planning (env config, Dockerfile specifics, DB hosting) | Decide before Phase 8 wraps up — flag as an open decision, not a default |
-| R9 | **Store/staff/owner permission overlap** — `owner` inherits all `staff` permissions; a bug in guard composition could either over- or under-grant access | Security-sensitive, especially for delete/pause/resume | RBAC-specific unit tests are a named line item in Phase 7, not left to general test coverage |
+| R1 | **Order Transaction Consistency** | Modifying database records during checkout must occur consistently | Use SQL Transactions (e.g. Prisma `$transaction` or TypeORM `EntityManager.transaction`) for order checkout |
+| R2 | **Refresh Token Blacklist Performance** | Checking refresh token validity on every auth check can cause database overhead | Hash tokens before checking; index the `token_hash` column |
+| R3 | **Local Disk Upload Storage Bloat** | Storing files locally on disk can fill up disk space if unbounded | Validate file size (5MB limit) strictly; configure Docker volumes to bind to host storage |
+| R4 | **Banned User Active Sessions** | Banned users might still access APIs if their Access Token hasn't expired | Perform a quick user status check (is_banned) in the `JwtAuthGuard` strategy hook |
 
 ---
 
-## 5. Future Feature Backlog (explicitly out of scope for now)
+## 5. Future Feature Backlog (Out of Scope for MVP)
 
-These are acknowledged as valuable but **not** part of the current roadmap. Listing them here exists specifically so they don't get pulled into an earlier phase by accident.
-
-- Online payment gateway integration (in addition to COD)
-- Dedicated delivery/shipper role and live delivery tracking
-- Push notifications (mobile) in addition to in-app WebSocket + email
-- Multi-language support (i18n)
-- Full-text/typo-tolerant search (e.g. Elasticsearch) beyond basic name search
-- Loyalty points / membership tiers
-- Multi-branch support for a single store brand
-- CMS-managed homepage banners/promotions
-- Fine-grained admin permission levels (beyond a single `admin` role)
-- GraphQL API alongside REST
-- Native mobile apps
-- In-app chat between Customer and Store
-
-If a task from this list is requested mid-project, treat it as a scope-expansion decision, not a normal backlog item — confirm it against this roadmap before starting.
-
----
-
-## 6. How to Use This Document
-
-- Before starting a task, identify which **Phase** it belongs to. If it belongs to a later phase than the one currently in progress, flag that instead of silently doing it early.
-- If a task doesn't fit any phase or matches something in the **Future Backlog**, treat that as a signal to pause and confirm scope rather than proceeding.
-- Update the status checkboxes (⬜ / 🟨 / ✅) as work completes — this file should always reflect where the project actually is, not just where it was planned to be.
-- Cross-reference `architecture.md` for *how* to implement a phase's tasks (module structure, decorators, repository pattern) and `project-overview.md` for *environment/setup* details needed along the way.
+- Online payment integration (stripe, e-wallets)
+- Voucher promotions and discounts
+- Product customization options (size, sugar, toppings, ice level)
+- WebSockets real-time notifications and automatic order cancellations
+- Multi-branch brand mapping
+- Cloudinary / S3 asset storage
