@@ -13,8 +13,8 @@ Its job is to prevent scope creep: at any point in the project, this file should
 ## 2. Roadmap Overview
 
 ```
-Phase 0 → Phase 1 → Phase 2 → Phase 3 → Phase 4 → Phase 5 → Phase 6 → Phase 7 → Phase 8 → Phase 9
-Setup     Auth      Catalog   Ordering  Lifecycle Ratings   Admin     Uploads   Hardening Release
+Phase 0 → Phase 1 → Phase 2 → Phase 3 → Phase 4   → Phase 5 → Phase 6 → Phase 7 → Phase 8
+Setup     Auth      Catalog   Ordering  Lifecycle    Admin     Uploads   Hardening Release
 ```
 
 ---
@@ -100,19 +100,7 @@ Setup     Auth      Catalog   Ordering  Lifecycle Ratings   Admin     Uploads   
 
 ---
 
-### Phase 5 — Ratings & Store Reports ⬜
-
-**Goal:** Customer reviews feedback loop and store revenue reports.
-
-- [ ] Review/Rating: 1–5 stars + comment, allowed only for `completed` orders (max 1 review per order)
-- [ ] Average rating updates (recalculates store average rating and counts)
-- [ ] Store revenue analytics for Staff (completed order totals, cancel counts, date range filters)
-
-**Exit criteria:** Completed orders can be rated, store profiles display average ratings, and Staff can check store metrics.
-
----
-
-### Phase 6 — Admin Module ⬜
+### Phase 5 — Admin Module ⬜
 
 **Goal:** Platform-level moderation, store onboarding, and system statistics.
 
@@ -125,7 +113,7 @@ Setup     Auth      Catalog   Ordering  Lifecycle Ratings   Admin     Uploads   
 
 ---
 
-### Phase 7 — File Upload Integration & Validation ⬜
+### Phase 6 — File Upload Integration & Validation ⬜
 
 **Goal:** Support product image uploads with strict format and size validation.
 
@@ -138,7 +126,7 @@ Setup     Auth      Catalog   Ordering  Lifecycle Ratings   Admin     Uploads   
 
 ---
 
-### Phase 8 — Hardening & Optimizations ⬜
+### Phase 7 — Hardening & Optimizations ⬜
 
 **Goal:** Security, performance verification, and test coverage requirements.
 
@@ -151,7 +139,7 @@ Setup     Auth      Catalog   Ordering  Lifecycle Ratings   Admin     Uploads   
 
 ---
 
-### Phase 9 — Deployment & Release ⬜
+### Phase 8 — Deployment & Release ⬜
 
 **Goal:** Production release configurations.
 
