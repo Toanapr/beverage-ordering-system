@@ -1,3 +1,5 @@
+import { Category } from "src/modules/categories/entities/category.entity";
+import { Product } from "src/modules/products/entities/product.entity";
 import { User } from "src/modules/users/entities/user.entity";
 import { Column, CreateDateColumn, Entity, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 
@@ -35,4 +37,10 @@ export class Store {
 
     @OneToMany(() => User, (user) => user.store)
     staffs!: User[];
+
+    @OneToMany(() => Category, (category) => category.store)
+    categories!: Category[];
+
+    @OneToMany(() => Product, (product) => product.store)
+    products!: Product[];
 }
