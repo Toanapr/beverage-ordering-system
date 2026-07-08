@@ -4,6 +4,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import cookieParser from 'cookie-parser';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -15,6 +16,13 @@ async function bootstrap() {
     }),
   );
 
+  app.use(cookieParser());
+
+  app.enableCors({
+    origin: process.env.CLIENT_URL,
+    credentials: true,
+  });
+
   app.useGlobalInterceptors(new ResponseInterceptor());
 
   app.useGlobalFilters(new HttpExceptionFilter());
@@ -23,6 +31,7 @@ async function bootstrap() {
     .setTitle("Beverage Ordering API")
     .setDescription("API documentation for Beverage Ordering System")
     .setVersion("1.0")
+    .addCookieAuth('refreshToken')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
