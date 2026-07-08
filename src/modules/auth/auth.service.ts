@@ -1,7 +1,7 @@
 import { ConflictException, ForbiddenException, Inject, Injectable, UnauthorizedException } from "@nestjs/common";
 import * as bcrypt from 'bcrypt';
+import { randomUUID } from 'crypto';
 import { RegisterDto } from "./dto/register.dto";
-
 import { I_REFRESH_TOKEN_REPOSITORY, type IRefreshTokenRepository } from "./repositories/refresh-token-repository.interface";
 import { JwtService } from "@nestjs/jwt";
 import { UserRole } from "src/common/enums/role.enum";
@@ -40,7 +40,8 @@ export class AuthService {
             role: UserRole.CUSTOMER
         });
 
-        return newUser;
+        const { passwordHash: _, ...userWithoutPassword } = newUser;
+        return userWithoutPassword;
     }
 
     async login(loginDto: LoginDto) {
@@ -72,11 +73,20 @@ export class AuthService {
         };
     }
 
-    async refreshTokens(userId: string, refreshToken: string) {
-        const user = await this.authRepository.findById(userId);
+    async refreshTokens(refreshToken: string) {
+        let decoded: { sub: string; email: string; role: string };
+        try {
+            decoded = await this.jwtService.verifyAsync(refreshToken, {
+                secret: this.configService.get('JWT_REFRESH_SECRET'),
+            });
+        } catch {
+            throw new UnauthorizedException('Token không hợp lệ hoặc đã hết hạn');
+        }
+
+        const user = await this.authRepository.findById(decoded.sub);
         if (!user || user.isBanned) throw new ForbiddenException('Truy cập bị từ chối');
 
-        const tokenRecord = await this.refreshTokenRepository.findActiveByUserId(userId);
+        const tokenRecord = await this.refreshTokenRepository.findActiveByUserId(user.id);
         if (!tokenRecord) throw new UnauthorizedException('Token không hợp lệ hoặc đã hết hạn');
 
         const isMatch = await bcrypt.compare(refreshToken, tokenRecord.token_hash);
@@ -96,10 +106,11 @@ export class AuthService {
 
     private async generateTokens(payload: { sub: string; email: string; role: string }) {
         const [accessToken, refreshToken] = await Promise.all([
-            this.jwtService.signAsync(payload),
+            this.jwtService.signAsync(payload, { jwtid: randomUUID() }),
             this.jwtService.signAsync(payload, {
                 secret: this.configService.get('JWT_REFRESH_SECRET'),
                 expiresIn: this.configService.getOrThrow('JWT_REFRESH_EXPIRES_IN'),
+                jwtid: randomUUID(),
             })
         ]);
         return { accessToken, refreshToken };

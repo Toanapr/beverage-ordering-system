@@ -1,10 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
+import cookieParser from 'cookie-parser';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../src/app.module';
-import { ResponseInterceptor } from 'src/common/interceptors/reponse.interceptor';
 import { HttpExceptionFilter } from 'src/common/filters/http-exception.filter';
+import { ResponseInterceptor } from 'src/common/interceptors/response.interceptor';
 
 describe('AuthController (Integration)', () => {
     let app: INestApplication;
@@ -14,8 +15,6 @@ describe('AuthController (Integration)', () => {
     const testPassword = 'password123';
     const testFullName = 'Nguyen Van Test';
 
-    let storedRefreshToken: string;
-    let storedAccessToken: string;
     let storedUserId: string;
 
     beforeAll(async () => {
@@ -25,6 +24,7 @@ describe('AuthController (Integration)', () => {
 
         app = moduleFixture.createNestApplication();
 
+        app.use(cookieParser());
         app.useGlobalInterceptors(new ResponseInterceptor());
         app.useGlobalFilters(new HttpExceptionFilter());
         app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
@@ -36,7 +36,7 @@ describe('AuthController (Integration)', () => {
 
     afterAll(async () => {
         if (dataSource && dataSource.isInitialized) {
-            await dataSource.query(`DELETE FROM users WHERE email = $1`, [testEmail]);
+            await dataSource.query(`DELETE FROM users WHERE email LIKE 'test-%@gmail.com'`);
             await dataSource.destroy();
         }
         await app.close();
@@ -49,6 +49,14 @@ describe('AuthController (Integration)', () => {
         expect(body).toHaveProperty('data');
         expect(body).toHaveProperty('timestamp');
         expect(new Date(body.timestamp).toString()).not.toBe('Invalid Date');
+    };
+
+    // Helper: pull the refreshToken cookie string out of a Set-Cookie header
+    const getRefreshCookie = (response: request.Response): string | undefined => {
+        const rawCookies = response.headers['set-cookie'];
+        if (!rawCookies) return undefined;
+        const cookies = Array.isArray(rawCookies) ? rawCookies : [rawCookies];
+        return cookies.find((c) => c.startsWith('refreshToken='));
     };
 
     // --- 1. REGISTER ---
@@ -71,6 +79,9 @@ describe('AuthController (Integration)', () => {
             expect(user.fullName).toBe(testFullName);
             expect(user.role).toBe('customer');
             expect(user).not.toHaveProperty('passwordHash');
+
+            // Register should never set a refresh-token cookie
+            expect(getRefreshCookie(response)).toBeUndefined();
         });
 
         it('should fail (400 Bad Request) on missing fields or invalid email format', async () => {
@@ -113,7 +124,7 @@ describe('AuthController (Integration)', () => {
 
     // --- 2. LOGIN ---
     describe('POST /auth/login', () => {
-        it('should log in successfully and return a token pair', async () => {
+        it('should log in successfully, return accessToken in body and set refreshToken as httpOnly cookie', async () => {
             const response = await request(app.getHttpServer())
                 .post('/auth/login')
                 .send({
@@ -126,13 +137,16 @@ describe('AuthController (Integration)', () => {
 
             const data = response.body.data;
             expect(data).toHaveProperty('accessToken');
-            expect(data).toHaveProperty('refreshToken');
             expect(data).toHaveProperty('user');
             expect(data.user.email).toBe(testEmail);
             expect(data.user).not.toHaveProperty('passwordHash');
 
-            storedAccessToken = data.accessToken;
-            storedRefreshToken = data.refreshToken;
+            expect(data).not.toHaveProperty('refreshToken');
+
+            const cookie = getRefreshCookie(response);
+            expect(cookie).toBeDefined();
+            expect(cookie).toMatch(/HttpOnly/i);
+
             storedUserId = data.user.id;
         });
 
@@ -146,6 +160,7 @@ describe('AuthController (Integration)', () => {
                 .expect(401);
 
             expect(response.body.message).toContain('Email hoặc mật khẩu không chính xác');
+            expect(getRefreshCookie(response)).toBeUndefined();
         });
 
         it('should fail (401 Unauthorized) when the email does not exist', async () => {
@@ -183,7 +198,6 @@ describe('AuthController (Integration)', () => {
 
             expect(response.body.message).toContain('Tài khoản của bạn đã bị khóa!');
 
-            // Unban so the rest of the suite (refresh/logout flows) can proceed normally
             await dataSource.query(
                 `UPDATE users SET "is_banned" = false WHERE email = $1`,
                 [testEmail],
@@ -191,45 +205,52 @@ describe('AuthController (Integration)', () => {
         });
     });
 
-    // --- 3. REFRESH TOKEN ---
+    // --- 3. REFRESH TOKEN (cookie-based) ---
     describe('POST /auth/refresh', () => {
-        it('should refresh the access token successfully with a valid refresh token', async () => {
-            const response = await request(app.getHttpServer())
+        let refreshAgent: ReturnType<typeof request.agent>;
+
+        beforeAll(() => {
+            refreshAgent = request.agent(app.getHttpServer());
+        });
+
+        it('should log in first to obtain a refreshToken cookie on the agent', async () => {
+            const response = await refreshAgent
+                .post('/auth/login')
+                .send({ email: testEmail, password: testPassword })
+                .expect(200);
+
+            expect(getRefreshCookie(response)).toBeDefined();
+        });
+
+        it('should refresh the access token successfully using the refreshToken cookie', async () => {
+            const response = await refreshAgent
                 .post('/auth/refresh')
-                .send({
-                    userId: storedUserId,
-                    refreshToken: storedRefreshToken,
-                })
+                .send()
                 .expect(200);
 
             expectSuccessEnvelope(response.body);
 
             const data = response.body.data;
             expect(data).toHaveProperty('accessToken');
-            expect(data).toHaveProperty('refreshToken');
+            expect(data).not.toHaveProperty('refreshToken');
 
-            storedAccessToken = data.accessToken;
-            storedRefreshToken = data.refreshToken;
+            const cookie = getRefreshCookie(response);
+            expect(cookie).toBeDefined();
         });
 
-        it('should fail (401 Unauthorized) with an invalid refresh token', async () => {
+        it('should fail (401 Unauthorized) when no refreshToken cookie is sent', async () => {
             await request(app.getHttpServer())
                 .post('/auth/refresh')
-                .send({
-                    userId: storedUserId,
-                    refreshToken: 'fake-token-that-does-not-exist',
-                })
+                .send()
                 .expect(401);
         });
 
-        it('should fail (403 Forbidden) when userId does not exist', async () => {
+        it('should fail (401 Unauthorized) with an invalid/forged refreshToken cookie', async () => {
             await request(app.getHttpServer())
                 .post('/auth/refresh')
-                .send({
-                    userId: '00000000-0000-0000-0000-000000000000',
-                    refreshToken: storedRefreshToken,
-                })
-                .expect(403);
+                .set('Cookie', ['refreshToken=fake-token-that-does-not-exist'])
+                .send()
+                .expect(401);
         });
 
         it('should fail (403 Forbidden) when the account is banned', async () => {
@@ -238,12 +259,9 @@ describe('AuthController (Integration)', () => {
                 [testEmail],
             );
 
-            await request(app.getHttpServer())
+            await refreshAgent
                 .post('/auth/refresh')
-                .send({
-                    userId: storedUserId,
-                    refreshToken: storedRefreshToken,
-                })
+                .send()
                 .expect(403);
 
             await dataSource.query(
@@ -251,30 +269,68 @@ describe('AuthController (Integration)', () => {
                 [testEmail],
             );
         });
+
+        it('should fail (403 Forbidden) when the user referenced by the token no longer exists', async () => {
+            const deletedUserEmail = `test-deleted-${Date.now()}@gmail.com`;
+            const oneOffAgent = request.agent(app.getHttpServer());
+
+            await oneOffAgent
+                .post('/auth/register')
+                .send({
+                    email: deletedUserEmail,
+                    password: testPassword,
+                    fullName: 'To Be Deleted',
+                })
+                .expect(201);
+
+            await oneOffAgent
+                .post('/auth/login')
+                .send({ email: deletedUserEmail, password: testPassword })
+                .expect(200);
+
+            await dataSource.query(`DELETE FROM users WHERE email = $1`, [deletedUserEmail]);
+
+            await oneOffAgent
+                .post('/auth/refresh')
+                .send()
+                .expect(403);
+        });
     });
 
     // --- 4. LOGOUT ---
     describe('POST /auth/logout', () => {
-        it('should log out successfully', async () => {
-            const response = await request(app.getHttpServer())
+        it('should log out successfully and clear the refreshToken cookie', async () => {
+            const agent = request.agent(app.getHttpServer());
+
+            await agent
+                .post('/auth/login')
+                .send({ email: testEmail, password: testPassword })
+                .expect(200);
+
+            const response = await agent
                 .post('/auth/logout')
-                .send({
-                    userId: storedUserId,
-                })
+                .send({ userId: storedUserId })
                 .expect(200);
 
             expectSuccessEnvelope(response.body);
             expect(response.body.data).toHaveProperty('message', 'Đăng xuất thành công!');
+
+            const cookie = getRefreshCookie(response);
+            expect(cookie).toBeDefined();
+            expect(cookie).toMatch(/refreshToken=;|Expires=Thu, 01 Jan 1970/i);
         });
 
-        it('should fail (401 Unauthorized) when reusing the old refresh token after logout', async () => {
-            await request(app.getHttpServer())
-                .post('/auth/refresh')
-                .send({
-                    userId: storedUserId,
-                    refreshToken: storedRefreshToken,
-                })
-                .expect(401);
+        it('should fail (401 Unauthorized) when reusing the old refreshToken cookie after logout', async () => {
+            const agent = request.agent(app.getHttpServer());
+
+            await agent
+                .post('/auth/login')
+                .send({ email: testEmail, password: testPassword })
+                .expect(200);
+
+            await agent.post('/auth/logout').send({ userId: storedUserId }).expect(200);
+
+            await agent.post('/auth/refresh').send().expect(401);
         });
     });
 });
