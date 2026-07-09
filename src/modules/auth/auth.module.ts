@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule } from '@nestjs/jwt';
+import { PassportModule } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { User } from '../users/entities/user.entity';
@@ -10,10 +11,12 @@ import { I_REFRESH_TOKEN_REPOSITORY } from './repositories/refresh-token-reposit
 import { RefreshTokenRepository } from './repositories/refresh-token.repository';
 import { I_AUTH_REPOSIROTY } from './repositories/auth-repository.interface';
 import { AuthRepository } from './repositories/auth.repository';
+import { JwtStrategy } from 'src/common/strategies/jwt.strategy';
 
 @Module({
     imports: [
         TypeOrmModule.forFeature([User, RefreshToken]),
+        PassportModule,
         JwtModule.registerAsync({
             imports: [ConfigModule],
             inject: [ConfigService],
@@ -27,6 +30,7 @@ import { AuthRepository } from './repositories/auth.repository';
     ],
     controllers: [AuthController],
     providers: [AuthService,
+        JwtStrategy,
         {
             provide: I_AUTH_REPOSIROTY,
             useClass: AuthRepository,

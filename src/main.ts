@@ -31,6 +31,7 @@ async function bootstrap() {
     .setTitle("Beverage Ordering API")
     .setDescription("API documentation for Beverage Ordering System")
     .setVersion("1.0")
+    .addBearerAuth()
     .addCookieAuth('refreshToken')
     .build();
 
