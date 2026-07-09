@@ -1,13 +1,10 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
-import cookieParser from 'cookie-parser';
+import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
-import { AppModule } from '../src/app.module';
-import { HttpExceptionFilter } from 'src/common/filters/http-exception.filter';
-import { ResponseInterceptor } from 'src/common/interceptors/response.interceptor';
+import { TestContext, setupTestContext, teardownTestContext } from './test-helper';
 
 describe('AuthController (Integration)', () => {
+    let context: TestContext;
     let app: INestApplication;
     let dataSource: DataSource;
 
@@ -18,30 +15,13 @@ describe('AuthController (Integration)', () => {
     let storedUserId: string;
 
     beforeAll(async () => {
-        const moduleFixture: TestingModule = await Test.createTestingModule({
-            imports: [AppModule],
-        }).compile();
-
-        app = moduleFixture.createNestApplication();
-
-        app.use(cookieParser());
-        app.useGlobalInterceptors(new ResponseInterceptor());
-        app.useGlobalFilters(new HttpExceptionFilter());
-        app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
-
-        await app.init();
-
-        dataSource = moduleFixture.get<DataSource>(DataSource);
-
-        await dataSource.runMigrations();
+        context = await setupTestContext();
+        app = context.app;
+        dataSource = context.dataSource;
     });
 
     afterAll(async () => {
-        if (dataSource && dataSource.isInitialized) {
-            await dataSource.dropDatabase();
-            await dataSource.destroy();
-        }
-        await app.close();
+        await teardownTestContext(context);
     });
 
     const expectSuccessEnvelope = (body: any) => {
