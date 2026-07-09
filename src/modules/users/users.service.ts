@@ -16,6 +16,7 @@ import {
 import { StoresService } from '../stores/stores.service';
 import { CreateStaffDto } from './dto/create-staff.dto';
 import { QueryStaffDto } from './dto/query-staff.dto';
+import { QueryUserDto } from './dto/query-user.dto';
 import { User } from './entities/user.entity';
 import {
   I_USER_REPOSITORY,
@@ -87,6 +88,33 @@ export class UsersService {
     );
   }
 
+  async findUsers(
+    query: QueryUserDto,
+  ): Promise<PaginatedResponseDto<SafeUser>> {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 10;
+    const skip = getOffset(page, limit);
+
+    const [items, totalItems] = await this.userRepository.findUsersAndCount({
+      skip,
+      take: limit,
+      sortBy: query.sortBy ?? 'createdAt',
+      sortOrder: query.sortOrder ?? SortOrder.DESC,
+      filter: {
+        search: query.search,
+        role: query.role,
+        isBanned: query.isBanned,
+      },
+    });
+
+    return paginate(
+      items.map((item) => this.toSafeUser(item)),
+      page,
+      limit,
+      totalItems,
+    );
+  }
+
   async lockStaff(id: string): Promise<SafeUser> {
     const staff = await this.findStaffByIdOrThrow(id);
     if (staff.isBanned) return this.toSafeUser(staff);
@@ -104,12 +132,41 @@ export class UsersService {
     return this.toSafeUser(updated as User);
   }
 
+  async lockUser(id: string): Promise<SafeUser> {
+    const user = await this.findLockableByIdOrThrow(id);
+    if (user.isBanned) return this.toSafeUser(user);
+
+    const updated = await this.userRepository.updateById(id, {
+      isBanned: true,
+    });
+    await this.refreshTokenRepository.revokeAllByUserId(id);
+    return this.toSafeUser(updated as User);
+  }
+
+  async unlockUser(id: string): Promise<SafeUser> {
+    const user = await this.findLockableByIdOrThrow(id);
+    if (!user.isBanned) return this.toSafeUser(user);
+
+    const updated = await this.userRepository.updateById(id, {
+      isBanned: false,
+    });
+    return this.toSafeUser(updated as User);
+  }
+
   private async findStaffByIdOrThrow(id: string): Promise<User> {
     const staff = await this.userRepository.findStaffById(id);
     if (!staff) {
       throw new NotFoundException('Staff not found');
     }
     return staff;
+  }
+
+  private async findLockableByIdOrThrow(id: string): Promise<User> {
+    const user = await this.userRepository.findLockableById(id);
+    if (!user) {
+      throw new NotFoundException('Lockable user not found');
+    }
+    return user;
   }
 
   private toSafeUser(user: User): SafeUser {
