@@ -54,6 +54,26 @@ describe('UsersService', () => {
     updatedAt: new Date(),
   };
 
+  const mockCustomer: User = {
+    ...mockStaff,
+    id: 'customer-1',
+    email: 'customer@example.com',
+    role: UserRole.CUSTOMER,
+    storeId: null,
+    store: null,
+    fullName: 'Customer User',
+  };
+
+  const mockAdmin: User = {
+    ...mockStaff,
+    id: 'admin-1',
+    email: 'admin@example.com',
+    role: UserRole.ADMIN,
+    storeId: null,
+    store: null,
+    fullName: 'Admin User',
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -62,10 +82,13 @@ describe('UsersService', () => {
           provide: I_USER_REPOSITORY,
           useValue: {
             findStaffAndCount: jest.fn(),
+            findUsersAndCount: jest.fn(),
             findByEmail: jest.fn(),
             findStaffById: jest.fn(),
+            findLockableById: jest.fn(),
             create: jest.fn(),
             update: jest.fn(),
+            updateById: jest.fn(),
           },
         },
         {
@@ -202,6 +225,44 @@ describe('UsersService', () => {
     });
   });
 
+  describe('findUsers', () => {
+    it('should list all user roles with pagination, search, and filters', async () => {
+      userRepository.findUsersAndCount.mockResolvedValue([
+        [mockCustomer, mockStaff, mockAdmin],
+        3,
+      ]);
+
+      const result = await service.findUsers({
+        page: 1,
+        limit: 10,
+        search: 'user',
+        role: UserRole.CUSTOMER,
+        isBanned: false,
+        sortBy: 'fullName',
+        sortOrder: SortOrder.ASC,
+      });
+
+      expect(userRepository.findUsersAndCount).toHaveBeenCalledWith({
+        skip: 0,
+        take: 10,
+        sortBy: 'fullName',
+        sortOrder: SortOrder.ASC,
+        filter: {
+          search: 'user',
+          role: UserRole.CUSTOMER,
+          isBanned: false,
+        },
+      });
+      expect(result.items).toHaveLength(3);
+      expect(result.items).toEqual(
+        expect.arrayContaining([
+          expect.not.objectContaining({ passwordHash: expect.anything() }),
+        ]),
+      );
+      expect(result.meta.totalItems).toBe(3);
+    });
+  });
+
   describe('lockStaff', () => {
     it('should lock staff and revoke refresh tokens', async () => {
       userRepository.findStaffById.mockResolvedValue(mockStaff);
@@ -266,6 +327,84 @@ describe('UsersService', () => {
 
       expect(userRepository.update).not.toHaveBeenCalled();
       expect(result.isBanned).toBe(false);
+    });
+  });
+
+  describe('lockUser', () => {
+    it('should lock a customer and revoke refresh tokens', async () => {
+      userRepository.findLockableById.mockResolvedValue(mockCustomer);
+      userRepository.updateById.mockResolvedValue({
+        ...mockCustomer,
+        isBanned: true,
+      });
+
+      const result = await service.lockUser(mockCustomer.id);
+
+      expect(userRepository.updateById).toHaveBeenCalledWith(mockCustomer.id, {
+        isBanned: true,
+      });
+      expect(refreshTokenRepository.revokeAllByUserId).toHaveBeenCalledWith(
+        mockCustomer.id,
+      );
+      expect(result.isBanned).toBe(true);
+    });
+
+    it('should be idempotent when user is already locked', async () => {
+      userRepository.findLockableById.mockResolvedValue({
+        ...mockCustomer,
+        isBanned: true,
+      });
+
+      const result = await service.lockUser(mockCustomer.id);
+
+      expect(userRepository.updateById).not.toHaveBeenCalled();
+      expect(refreshTokenRepository.revokeAllByUserId).not.toHaveBeenCalled();
+      expect(result.isBanned).toBe(true);
+    });
+
+    it('should throw NotFoundException for admin or missing users', async () => {
+      userRepository.findLockableById.mockResolvedValue(null);
+
+      await expect(service.lockUser(mockAdmin.id)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  describe('unlockUser', () => {
+    it('should unlock a staff user', async () => {
+      userRepository.findLockableById.mockResolvedValue({
+        ...mockStaff,
+        isBanned: true,
+      });
+      userRepository.updateById.mockResolvedValue({
+        ...mockStaff,
+        isBanned: false,
+      });
+
+      const result = await service.unlockUser(mockStaff.id);
+
+      expect(userRepository.updateById).toHaveBeenCalledWith(mockStaff.id, {
+        isBanned: false,
+      });
+      expect(result.isBanned).toBe(false);
+    });
+
+    it('should be idempotent when user is already unlocked', async () => {
+      userRepository.findLockableById.mockResolvedValue(mockCustomer);
+
+      const result = await service.unlockUser(mockCustomer.id);
+
+      expect(userRepository.updateById).not.toHaveBeenCalled();
+      expect(result.isBanned).toBe(false);
+    });
+
+    it('should throw NotFoundException for admin or missing users', async () => {
+      userRepository.findLockableById.mockResolvedValue(null);
+
+      await expect(service.unlockUser(mockAdmin.id)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 });

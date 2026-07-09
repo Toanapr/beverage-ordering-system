@@ -1,9 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { UserRole } from 'src/common/enums/role.enum';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { User } from '../entities/user.entity';
-import { IUserRepository, StaffListOptions } from './user-repository.interface';
+import {
+  IUserRepository,
+  StaffListOptions,
+  UserListOptions,
+} from './user-repository.interface';
 
 const STAFF_SORTABLE_FIELDS: Record<string, string> = {
   email: 'user.email',
@@ -50,6 +54,32 @@ export class UserRepository implements IUserRepository {
     return qb.getManyAndCount();
   }
 
+  async findUsersAndCount(options: UserListOptions): Promise<[User[], number]> {
+    const { skip, take, sortBy, sortOrder, filter } = options;
+    const qb = this.typeOrmRepository.createQueryBuilder('user');
+
+    if (filter.search) {
+      qb.andWhere('(user.email ILIKE :search OR user.fullName ILIKE :search)', {
+        search: `%${filter.search}%`,
+      });
+    }
+
+    if (filter.role) {
+      qb.andWhere('user.role = :role', { role: filter.role });
+    }
+
+    if (filter.isBanned !== undefined) {
+      qb.andWhere('user.isBanned = :isBanned', {
+        isBanned: filter.isBanned,
+      });
+    }
+
+    const orderField = STAFF_SORTABLE_FIELDS[sortBy] ?? DEFAULT_SORT_FIELD;
+    qb.orderBy(orderField, sortOrder).skip(skip).take(take);
+
+    return qb.getManyAndCount();
+  }
+
   async findByEmail(email: string): Promise<User | null> {
     return this.typeOrmRepository.findOne({ where: { email } });
   }
@@ -57,6 +87,15 @@ export class UserRepository implements IUserRepository {
   async findStaffById(id: string): Promise<User | null> {
     return this.typeOrmRepository.findOne({
       where: { id, role: UserRole.STAFF },
+    });
+  }
+
+  async findLockableById(id: string): Promise<User | null> {
+    return this.typeOrmRepository.findOne({
+      where: {
+        id,
+        role: In([UserRole.CUSTOMER, UserRole.STAFF]),
+      },
     });
   }
 
@@ -68,5 +107,10 @@ export class UserRepository implements IUserRepository {
   async update(id: string, data: Partial<User>): Promise<User | null> {
     await this.typeOrmRepository.update(id, data);
     return this.findStaffById(id);
+  }
+
+  async updateById(id: string, data: Partial<User>): Promise<User | null> {
+    await this.typeOrmRepository.update(id, data);
+    return this.typeOrmRepository.findOne({ where: { id } });
   }
 }
