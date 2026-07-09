@@ -32,17 +32,18 @@ describe('AuthController (Integration)', () => {
         await app.init();
 
         dataSource = moduleFixture.get<DataSource>(DataSource);
+
+        await dataSource.runMigrations();
     });
 
     afterAll(async () => {
         if (dataSource && dataSource.isInitialized) {
-            await dataSource.query(`DELETE FROM users WHERE email LIKE 'test-%@gmail.com'`);
+            await dataSource.dropDatabase();
             await dataSource.destroy();
         }
         await app.close();
     });
 
-    // Helper: assert the standard envelope produced by ResponseInterceptor
     const expectSuccessEnvelope = (body: any) => {
         expect(body).toHaveProperty('success', true);
         expect(body).toHaveProperty('message', 'Request successful');
