@@ -14,31 +14,32 @@ import { AuthRepository } from './repositories/auth.repository';
 import { JwtStrategy } from 'src/common/strategies/jwt.strategy';
 
 @Module({
-    imports: [
-        TypeOrmModule.forFeature([User, RefreshToken]),
-        PassportModule,
-        JwtModule.registerAsync({
-            imports: [ConfigModule],
-            inject: [ConfigService],
-            useFactory: (config: ConfigService) => ({
-                secret: config.get('JWT_ACCESS_SECRET'),
-                signOptions: {
-                    expiresIn: config.getOrThrow('JWT_ACCESS_EXPIRES_IN'),
-                },
-            }),
-        }),
-    ],
-    controllers: [AuthController],
-    providers: [AuthService,
-        JwtStrategy,
-        {
-            provide: I_AUTH_REPOSIROTY,
-            useClass: AuthRepository,
+  imports: [
+    TypeOrmModule.forFeature([User, RefreshToken]),
+    PassportModule,
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        secret: config.get('JWT_ACCESS_SECRET'),
+        signOptions: {
+          expiresIn: config.getOrThrow('JWT_ACCESS_EXPIRES_IN'),
         },
-        {
-            provide: I_REFRESH_TOKEN_REPOSITORY,
-            useClass: RefreshTokenRepository,
-        },
-    ],
+      }),
+    }),
+  ],
+  controllers: [AuthController],
+  providers: [
+    AuthService,
+    JwtStrategy,
+    {
+      provide: I_AUTH_REPOSIROTY,
+      useClass: AuthRepository,
+    },
+    {
+      provide: I_REFRESH_TOKEN_REPOSITORY,
+      useClass: RefreshTokenRepository,
+    },
+  ],
 })
-export class AuthModule { }
+export class AuthModule {}
