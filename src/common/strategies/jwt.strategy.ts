@@ -39,7 +39,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     }
 
     if (user.isBanned) {
-      throw new ForbiddenException('Your account has been banned');
+      throw new ForbiddenException('Your account has been locked!');
     }
 
     return user;

@@ -28,16 +28,16 @@ async function bootstrap() {
   app.useGlobalFilters(new HttpExceptionFilter());
 
   const config = new DocumentBuilder()
-    .setTitle("Beverage Ordering API")
-    .setDescription("API documentation for Beverage Ordering System")
-    .setVersion("1.0")
+    .setTitle('Beverage Ordering API')
+    .setDescription('API documentation for Beverage Ordering System')
+    .setVersion('1.0')
     .addBearerAuth()
     .addCookieAuth('refreshToken')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup("api-docs", app, document);
+  SwaggerModule.setup('api-docs', app, document);
 
   await app.listen(process.env.PORT ?? 3000);
 }
-bootstrap();
+void bootstrap();

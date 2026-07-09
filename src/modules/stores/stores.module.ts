@@ -7,12 +7,12 @@ import { I_STORE_REPOSITORY } from './repositories/store-repository.interface';
 import { StoresController } from './stores.controller';
 
 @Module({
-    imports: [TypeOrmModule.forFeature([Store])],
-    controllers: [StoresController],
-    providers: [
-        StoresService,
-        { provide: I_STORE_REPOSITORY, useClass: StoreRepository },
-    ],
-    exports: [StoresService],
+  imports: [TypeOrmModule.forFeature([Store])],
+  controllers: [StoresController],
+  providers: [
+    StoresService,
+    { provide: I_STORE_REPOSITORY, useClass: StoreRepository },
+  ],
+  exports: [StoresService],
 })
-export class StoresModule { }
+export class StoresModule {}

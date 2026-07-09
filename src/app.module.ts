@@ -38,5 +38,4 @@ import { ProductsModule } from './modules/products/products.module';
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule { }
-
+export class AppModule {}

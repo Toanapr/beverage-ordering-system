@@ -1,34 +1,37 @@
-import { PaginatedResponseDto, PaginationMetaDto } from "../dto/paginated-response.dto";
+import {
+  PaginatedResponseDto,
+  PaginationMetaDto,
+} from '../dto/paginated-response.dto';
 
 export function getOffset(page: number, limit: number): number {
-    return (page - 1) * limit;
+  return (page - 1) * limit;
 }
 
 export function buildPaginationMeta(
-    page: number,
-    limit: number,
-    totalItems: number,
+  page: number,
+  limit: number,
+  totalItems: number,
 ): PaginationMetaDto {
-    const totalPages = totalItems === 0 ? 0 : Math.ceil(totalItems / limit);
+  const totalPages = totalItems === 0 ? 0 : Math.ceil(totalItems / limit);
 
-    return {
-        page,
-        limit,
-        totalItems,
-        totalPages,
-        hasNextPage: page < totalPages,
-        hasPrevPage: page > 1,
-    };
+  return {
+    page,
+    limit,
+    totalItems,
+    totalPages,
+    hasNextPage: page < totalPages,
+    hasPrevPage: page > 1,
+  };
 }
 
 export function paginate<T>(
-    items: T[],
-    page: number,
-    limit: number,
-    totalItems: number,
+  items: T[],
+  page: number,
+  limit: number,
+  totalItems: number,
 ): PaginatedResponseDto<T> {
-    return {
-        items,
-        meta: buildPaginationMeta(page, limit, totalItems),
-    };
+  return {
+    items,
+    meta: buildPaginationMeta(page, limit, totalItems),
+  };
 }
