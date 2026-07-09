@@ -1,5 +1,5 @@
-import { Body, Controller, HttpCode, HttpStatus, Post, Req, Res, UnauthorizedException } from "@nestjs/common";
-import { ApiTags } from "@nestjs/swagger";
+import { Body, Controller, Get, HttpCode, HttpStatus, Post, Req, Res, UnauthorizedException, UseGuards } from "@nestjs/common";
+import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import type { Request, Response } from "express";
 import { AuthService } from "./auth.service";
 import { RegisterDto } from "./dto/register.dto";
@@ -10,6 +10,9 @@ import { LogoutDto } from "./dto/logout.dto";
 import { RefreshSwagger } from "./decorators/refresh.swagger";
 import { LoginSwagger } from "./decorators/login.swagger";
 import { RegisterSwagger } from "./decorators/register.swagger";
+import { JwtAuthGuard } from "src/common/guards/jwt-auth.guard";
+import { CurrentUser } from "src/common/decorators/current-user.decorator";
+import { User } from "src/modules/users/entities/user.entity";
 
 const REFRESH_TOKEN_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -22,6 +25,13 @@ export class AuthController {
     @RegisterSwagger()
     register(@Body() registerDto: RegisterDto) {
         return this.authService.register(registerDto);
+    }
+
+    @Get('me')
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth()
+    me(@CurrentUser() user: User) {
+        return user;
     }
 
     @Post('login')
