@@ -8,12 +8,13 @@ import { RefreshTokenRepository } from '../auth/repositories/refresh-token.repos
 import { StoresModule } from '../stores/stores.module';
 import { I_USER_REPOSITORY } from './repositories/user-repository.interface';
 import { UserRepository } from './repositories/user.repository';
+import { AdminUsersController } from './admin-users.controller';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 
 @Module({
   imports: [TypeOrmModule.forFeature([User, RefreshToken]), StoresModule],
-  controllers: [UsersController],
+  controllers: [UsersController, AdminUsersController],
   providers: [
     UsersService,
     { provide: I_USER_REPOSITORY, useClass: UserRepository },
