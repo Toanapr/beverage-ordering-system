@@ -13,6 +13,9 @@ import {
     LockStoreSwagger,
     UnlockStoreSwagger,
 } from './decorators';
+import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
+import { RolesGuard } from 'src/common/guards/roles.guard';
+import { Roles } from 'src/common/decorators/roles.decorator';
 
 @ApiTags('Stores')
 @Controller('stores')
@@ -32,32 +35,32 @@ export class StoresController {
     }
 
     @Post()
-    //@UseGuards(JwtAuthGuard, RolesGuard)
-    //@Roles(UserRole.ADMIN)
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles(UserRole.ADMIN)
     @CreateStoreSwagger()
     create(@Body() dto: CreateStoreDto) {
         return this.storesService.create(dto);
     }
 
     @Patch(':id')
-    //@UseGuards(JwtAuthGuard, RolesGuard)
-    //@Roles(UserRole.ADMIN)
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles(UserRole.ADMIN)
     @UpdateStoreSwagger()
     update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateStoreDto) {
         return this.storesService.update(id, dto);
     }
 
     @Patch(':id/lock')
-    //@UseGuards(JwtAuthGuard, RolesGuard)
-    //@Roles(UserRole.ADMIN)
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles(UserRole.ADMIN)
     @LockStoreSwagger()
     lock(@Param('id', ParseUUIDPipe) id: string) {
         return this.storesService.lock(id);
     }
 
     @Patch(':id/unlock')
-    //@UseGuards(JwtAuthGuard, RolesGuard)
-    //@Roles(UserRole.ADMIN)
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles(UserRole.ADMIN)
     @UnlockStoreSwagger()
     unlock(@Param('id', ParseUUIDPipe) id: string) {
         return this.storesService.unlock(id);
