@@ -167,9 +167,7 @@ describe('Staff Store Profile (Integration)', () => {
         .set('Authorization', `Bearer ${unassignedStaffToken}`)
         .expect(403);
 
-      expect(response.body.message).toBe(
-        'Nhân viên chưa được phân công cửa hàng',
-      );
+      expect(response.body.message).toBe('Staff member has no assigned store');
     });
   });
 
