@@ -15,23 +15,22 @@ export const UpdateStaffStoreSwagger = () =>
   applyDecorators(
     ApiBearerAuth(),
     ApiOperation({
-      summary: '[STAFF] Cập nhật cửa hàng được phân công',
+      summary: '[STAFF] Update assigned store',
       description:
-        'Cho phép cập nhật name, phone, address và isOpen. Không cho phép Staff thay đổi trạng thái khóa hoặc rating.',
+        'Allows updating name, phone, address, and isOpen. Staff cannot change the lock status or ratings.',
     }),
     ApiSuccessResponse(StoreResponseDto, {
-      description: 'Cập nhật cửa hàng được phân công thành công',
+      description: 'Assigned store updated successfully',
     }),
-    ApiBadRequestResponse({ description: 'Dữ liệu không hợp lệ' }),
+    ApiBadRequestResponse({ description: 'Invalid request data' }),
     ApiUnauthorizedResponse({
-      description: 'Chưa đăng nhập hoặc access token không hợp lệ',
+      description: 'Missing or invalid access token',
     }),
     ApiForbiddenResponse({
-      description:
-        'Không có quyền STAFF hoặc Staff chưa được phân công cửa hàng',
+      description: 'Requires STAFF role and an assigned store',
     }),
     ApiNotFoundResponse({
-      description: 'Cửa hàng được phân công không tồn tại',
+      description: 'Assigned store was not found',
     }),
-    ApiConflictResponse({ description: 'Tên cửa hàng đã tồn tại' }),
+    ApiConflictResponse({ description: 'Store name already exists' }),
   );

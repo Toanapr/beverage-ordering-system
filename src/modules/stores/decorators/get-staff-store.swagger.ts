@@ -13,21 +13,20 @@ export const GetStaffStoreSwagger = () =>
   applyDecorators(
     ApiBearerAuth(),
     ApiOperation({
-      summary: '[STAFF] Xem cửa hàng được phân công',
+      summary: '[STAFF] View assigned store',
       description:
-        'Cửa hàng được xác định từ tài khoản Staff đang đăng nhập; client không cần truyền storeId.',
+        'The store is determined from the authenticated Staff account; the client does not need to provide a storeId.',
     }),
     ApiSuccessResponse(StoreResponseDto, {
-      description: 'Lấy thông tin cửa hàng được phân công thành công',
+      description: 'Assigned store retrieved successfully',
     }),
     ApiUnauthorizedResponse({
-      description: 'Chưa đăng nhập hoặc access token không hợp lệ',
+      description: 'Missing or invalid access token',
     }),
     ApiForbiddenResponse({
-      description:
-        'Không có quyền STAFF hoặc Staff chưa được phân công cửa hàng',
+      description: 'Requires STAFF role and an assigned store',
     }),
     ApiNotFoundResponse({
-      description: 'Cửa hàng được phân công không tồn tại',
+      description: 'Assigned store was not found',
     }),
   );
