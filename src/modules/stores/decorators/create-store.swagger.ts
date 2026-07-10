@@ -13,15 +13,15 @@ import { ApiSuccessResponse } from 'src/common/decorators/swagger/api-success-re
 export const CreateStoreSwagger = () =>
   applyDecorators(
     ApiBearerAuth(),
-    ApiOperation({ summary: '[ADMIN] Tạo cửa hàng mới' }),
+    ApiOperation({ summary: '[ADMIN] Create a new store' }),
     ApiSuccessResponse(StoreResponseDto, {
       status: 201,
-      description: 'Tạo cửa hàng thành công',
+      description: 'Store created successfully',
     }),
-    ApiBadRequestResponse({ description: 'Dữ liệu không hợp lệ' }),
+    ApiBadRequestResponse({ description: 'Invalid data' }),
     ApiUnauthorizedResponse({
-      description: 'Chưa đăng nhập hoặc access token không hợp lệ',
+      description: 'Not logged in or access token is invalid',
     }),
-    ApiForbiddenResponse({ description: 'Không có quyền ADMIN' }),
-    ApiConflictResponse({ description: 'Tên cửa hàng đã tồn tại' }),
+    ApiForbiddenResponse({ description: 'Forbidden: Admin access required' }),
+    ApiConflictResponse({ description: 'Store name already exists' }),
   );

@@ -12,19 +12,19 @@ export const ListProductSwagger = () =>
   applyDecorators(
     ApiBearerAuth(),
     ApiOperation({
-      summary: '[STAFF/ADMIN] Danh sách sản phẩm',
+      summary: '[STAFF/ADMIN] Product list',
       description:
-        'STAFF chỉ thấy sản phẩm thuộc store mình được gán (storeId truyền lên sẽ bị lỗi). ADMIN có thể lọc theo storeId bất kỳ hoặc để trống để xem tất cả store. Hỗ trợ search theo tên, filter theo status, sort, phân trang.',
+        'Staff can only see products belonging to their assigned store (passing storeId will cause an error). Admin can filter by any storeId or leave empty to view all stores. Supports search by name, filter by status, sort, and pagination.',
     }),
     ApiPaginatedResponse(
       ProductResponseDto,
-      'Lấy danh sách sản phẩm thành công',
+      'Product list retrieved successfully',
     ),
     ApiUnauthorizedResponse({
-      description: 'Chưa đăng nhập hoặc access token không hợp lệ',
+      description: 'Not logged in or access token is invalid',
     }),
     ApiForbiddenResponse({
       description:
-        'Không có quyền STAFF/ADMIN, hoặc STAFF chưa được gán vào store nào',
+        'Forbidden: Requires STAFF/ADMIN role, or staff not assigned to any store',
     }),
   );

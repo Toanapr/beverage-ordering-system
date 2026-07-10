@@ -42,7 +42,7 @@ export class ProductsService {
     const product = await this.productRepository.findById(productId);
 
     if (!product) {
-      throw new NotFoundException('Không tìm thấy sản phẩm');
+      throw new NotFoundException('Product not found');
     }
 
     return product;

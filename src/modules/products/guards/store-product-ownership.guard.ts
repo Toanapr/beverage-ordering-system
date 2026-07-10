@@ -34,12 +34,12 @@ export class StoreProductOwnershipGuard implements CanActivate {
 
     const productId = request.params.id;
     if (!productId) {
-      throw new NotFoundException('Không tìm thấy sản phẩm');
+      throw new NotFoundException('Product not found');
     }
 
     const product = await this.productRepository.findById(productId);
     if (!product) {
-      throw new NotFoundException('Không tìm thấy sản phẩm');
+      throw new NotFoundException('Product not found');
     }
 
     if (authUser.role === UserRole.ADMIN) {
@@ -49,7 +49,7 @@ export class StoreProductOwnershipGuard implements CanActivate {
 
     if (!authUser.storeId || authUser.storeId !== product.storeId) {
       throw new ForbiddenException(
-        'Bạn không có quyền thao tác sản phẩm của cửa hàng khác',
+        'You do not have permission to modify products of another store',
       );
     }
 

@@ -11,12 +11,12 @@ export class ProductResponseDto {
   @ApiProperty()
   categoryId!: string;
 
-  @ApiProperty({ example: 'Trà sữa trân châu' })
+  @ApiProperty({ example: 'Bubble Milk Tea' })
   name!: string;
 
   @ApiProperty({
     nullable: true,
-    example: 'Trà sữa Đài Loan, trân châu đen, size M',
+    example: 'Taiwanese milk tea, black pearls, size M',
   })
   description!: string | null;
 

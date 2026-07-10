@@ -5,11 +5,11 @@ import { StoreResponseDto } from '../dto/responses/store-response.dto';
 
 export const GetStoreSwagger = () =>
   applyDecorators(
-    ApiOperation({ summary: 'Chi tiết cửa hàng (public)' }),
+    ApiOperation({ summary: 'Store details (public)' }),
     ApiSuccessResponse(StoreResponseDto, {
-      description: 'Lấy chi tiết cửa hàng thành công',
+      description: 'Store details retrieved successfully',
     }),
     ApiNotFoundResponse({
-      description: 'Không tìm thấy cửa hàng (không tồn tại hoặc đã bị khóa)',
+      description: 'Store not found (does not exist or is locked)',
     }),
   );

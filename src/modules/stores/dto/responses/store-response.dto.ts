@@ -4,13 +4,13 @@ export class StoreResponseDto {
   @ApiProperty({ example: 'b1f2c3d4-5678-90ab-cdef-1234567890ab' })
   id!: string;
 
-  @ApiProperty({ example: 'Trà Sữa ABC' })
+  @ApiProperty({ example: 'ABC Tea' })
   name!: string;
 
   @ApiProperty({ example: '0901234567' })
   phone!: string;
 
-  @ApiProperty({ example: '123 Nguyễn Trãi, Q.1, TP.HCM' })
+  @ApiProperty({ example: '123 Nguyen Trai, District 1, HCMC' })
   address!: string;
 
   @ApiProperty({ example: true })

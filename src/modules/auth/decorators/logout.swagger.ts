@@ -5,8 +5,8 @@ import { MessageResponseDto } from '../dto/responses/message-response.dto';
 
 export const LogoutSwagger = () =>
   applyDecorators(
-    ApiOperation({ summary: 'Đăng xuất, thu hồi mọi refresh token của user' }),
+    ApiOperation({ summary: 'Logout, revoke all refresh tokens of the user' }),
     ApiSuccessResponse(MessageResponseDto, {
-      description: 'Đăng xuất thành công',
+      description: 'Logout successful',
     }),
   );

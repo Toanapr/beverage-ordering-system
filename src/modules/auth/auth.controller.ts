@@ -83,7 +83,7 @@ export class AuthController {
         ? (cookies as Record<string, unknown>)[REFRESH_TOKEN_COOKIE_NAME]
         : undefined;
     if (typeof refreshToken !== 'string') {
-      throw new UnauthorizedException('Không tìm thấy refresh token');
+      throw new UnauthorizedException('Refresh token not found');
     }
 
     const tokens = await this.authService.refreshTokens(refreshToken);

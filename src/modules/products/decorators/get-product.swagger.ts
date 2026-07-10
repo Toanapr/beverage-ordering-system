@@ -13,19 +13,19 @@ export const GetProductSwagger = () =>
   applyDecorators(
     ApiBearerAuth(),
     ApiOperation({
-      summary: '[STAFF/ADMIN] Chi tiết sản phẩm',
+      summary: '[STAFF/ADMIN] Product details',
       description:
-        'STAFF chỉ xem được sản phẩm thuộc store mình đang được gán.',
+        'Staff can only view products belonging to their assigned store.',
     }),
     ApiSuccessResponse(ProductResponseDto, {
-      description: 'Lấy chi tiết sản phẩm thành công',
+      description: 'Product details retrieved successfully',
     }),
     ApiUnauthorizedResponse({
-      description: 'Chưa đăng nhập hoặc access token không hợp lệ',
+      description: 'Not logged in or access token is invalid',
     }),
     ApiForbiddenResponse({
       description:
-        'Sản phẩm thuộc store khác — không có quyền xem (store ownership)',
+        'Product belongs to another store - forbidden (store ownership)',
     }),
-    ApiNotFoundResponse({ description: 'Không tìm thấy sản phẩm' }),
+    ApiNotFoundResponse({ description: 'Product not found' }),
   );

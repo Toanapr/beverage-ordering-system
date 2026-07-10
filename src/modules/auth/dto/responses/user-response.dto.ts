@@ -13,7 +13,7 @@ export class UserResponseDto {
   @ApiProperty({ example: null, nullable: true })
   storeId!: string | null;
 
-  @ApiProperty({ example: 'Nguyễn Văn A' })
+  @ApiProperty({ example: 'John Doe' })
   fullName!: string;
 
   @ApiProperty({ example: null, nullable: true })

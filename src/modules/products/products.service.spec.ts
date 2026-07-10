@@ -16,7 +16,7 @@ describe('ProductsService', () => {
     id: 'product-1',
     storeId: 'store-1',
     categoryId: 'category-1',
-    name: 'Trà Sữa Matcha',
+    name: 'Matcha Milk Tea',
     description: 'Matcha latte size M',
     price: 35000,
     imageUrl: null,

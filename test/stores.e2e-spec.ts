@@ -72,9 +72,9 @@ describe('StoresController (Integration)', () => {
 
   describe('POST /stores (Create Store)', () => {
     const storeData = {
-      name: 'Cửa hàng Test E2E',
+      name: 'E2E Test Store',
       phone: '0987654321',
-      address: '456 Lê Lợi, Quận 1, TP. HCM',
+      address: '456 Le Loi, District 1, HCMC',
     };
 
     it('should create a store successfully when requested by an admin', async () => {
@@ -114,13 +114,11 @@ describe('StoresController (Integration)', () => {
         .send({
           name: '',
           phone: '0987654321',
-          address: '456 Lê Lợi',
+          address: '456 Le Loi',
         })
         .expect(400);
 
-      expect(response.body.message).toContain(
-        'Tên cửa hàng không được để trống',
-      );
+      expect(response.body.message).toContain('Store name must not be empty');
     });
 
     it('should fail (400 Bad Request) when phone is empty', async () => {
@@ -128,15 +126,13 @@ describe('StoresController (Integration)', () => {
         .post('/stores')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
-          name: 'Cửa hàng No Phone',
+          name: 'No Phone Store',
           phone: '',
-          address: '456 Lê Lợi',
+          address: '456 Le Loi',
         })
         .expect(400);
 
-      expect(response.body.message).toContain(
-        'Số điện thoại không được để trống',
-      );
+      expect(response.body.message).toContain('Phone number must not be empty');
     });
 
     it('should fail (400 Bad Request) when address is empty', async () => {
@@ -144,13 +140,13 @@ describe('StoresController (Integration)', () => {
         .post('/stores')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
-          name: 'Cửa hàng No Address',
+          name: 'No Address Store',
           phone: '0987654321',
           address: '',
         })
         .expect(400);
 
-      expect(response.body.message).toContain('Địa chỉ không được để trống');
+      expect(response.body.message).toContain('Address must not be empty');
     });
 
     it('should fail (400 Bad Request) when name exceeds 100 characters', async () => {
@@ -161,19 +157,21 @@ describe('StoresController (Integration)', () => {
         .send({
           name: longName,
           phone: '0987654321',
-          address: '456 Lê Lợi',
+          address: '456 Le Loi',
         })
         .expect(400);
 
-      expect(response.body.message).toContain('Tên cửa hàng tối đa 100 ký tự');
+      expect(response.body.message).toContain(
+        'Store name must be at most 100 characters',
+      );
     });
 
     it('should fail (409 Conflict) when store name already exists', async () => {
-      const uniqueName = `Cửa hàng Trùng Tên ${Date.now()}_${Math.random()}`;
+      const uniqueName = `Duplicate Name Store ${Date.now()}_${Math.random()}`;
       const seedData = {
         name: uniqueName,
         phone: '0901234567',
-        address: '123 Nguyễn Trãi',
+        address: '123 Nguyen Trai',
       };
 
       // Seed first store
@@ -190,11 +188,11 @@ describe('StoresController (Integration)', () => {
         .send({
           name: uniqueName,
           phone: '0907654321',
-          address: '321 Lê Hồng Phong',
+          address: '321 Le Hong Phong',
         })
         .expect(409);
 
-      expect(response.body.message).toBe('Tên cửa hàng đã tồn tại');
+      expect(response.body.message).toBe('Store name already exists');
     });
   });
 
@@ -205,9 +203,9 @@ describe('StoresController (Integration)', () => {
         .post('/stores')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
-          name: `Cửa hàng Active E2E ${Date.now()}`,
+          name: `Active E2E Store ${Date.now()}`,
           phone: '0908888888',
-          address: 'Địa chỉ Active',
+          address: 'Active Address',
         });
 
       // Seed locked store (needs admin token)
@@ -215,9 +213,9 @@ describe('StoresController (Integration)', () => {
         .post('/stores')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
-          name: `Cửa hàng Bị Khóa E2E ${Date.now()}`,
+          name: `Locked E2E Store ${Date.now()}`,
           phone: '0909999999',
-          address: 'Địa chỉ Bị Khóa',
+          address: 'Locked Address',
         });
       const lockId = lockTarget.body.data.id;
       // Lock it (needs admin token)
@@ -247,9 +245,9 @@ describe('StoresController (Integration)', () => {
         .post('/stores')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
-          name: `Cửa hàng Single Test ${Date.now()}`,
+          name: `Single Test Store ${Date.now()}`,
           phone: '0902222222',
-          address: 'Địa chỉ B',
+          address: 'Address B',
         });
       const seedId = seedResponse.body.data.id;
 
@@ -267,9 +265,9 @@ describe('StoresController (Integration)', () => {
         .post('/stores')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
-          name: `Cửa hàng Sẽ Bị Khóa ${Date.now()}`,
+          name: `Will Be Locked Store ${Date.now()}`,
           phone: '0901239999',
-          address: 'Địa chỉ X',
+          address: 'Address X',
         });
       const seedId = seedResponse.body.data.id;
 
@@ -284,14 +282,14 @@ describe('StoresController (Integration)', () => {
         .get(`/stores/${seedId}`)
         .expect(404);
 
-      expect(response.body.message).toBe('Không tìm thấy cửa hàng');
+      expect(response.body.message).toBe('Store not found');
     });
   });
 
   describe('PATCH /stores/:id (Update Store)', () => {
     let storeId: string;
     const updateData = {
-      name: 'Cửa hàng Mới',
+      name: 'New Store',
       phone: '0904444444',
     };
 
@@ -300,9 +298,9 @@ describe('StoresController (Integration)', () => {
         .post('/stores')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
-          name: `Cửa hàng Cần Update ${Date.now()}_${Math.random().toString(36).substring(7)}`,
+          name: `Update Target Store ${Date.now()}_${Math.random().toString(36).substring(7)}`,
           phone: '0903333333',
-          address: 'Địa chỉ Cũ',
+          address: 'Old Address',
         });
       storeId = response.body.data.id;
     });
@@ -335,7 +333,7 @@ describe('StoresController (Integration)', () => {
     });
 
     it('should fail (409 Conflict) if updating to a name that is already taken by another store', async () => {
-      const duplicateName = `Cửa hàng Khác ${Date.now()}_${Math.random().toString(36).substring(7)}`;
+      const duplicateName = `Other Store ${Date.now()}_${Math.random().toString(36).substring(7)}`;
       // Seed another store
       await request(app.getHttpServer())
         .post('/stores')
@@ -343,7 +341,7 @@ describe('StoresController (Integration)', () => {
         .send({
           name: duplicateName,
           phone: '0909999888',
-          address: 'Địa chỉ Khác',
+          address: 'Other Address',
         });
 
       // Try to update current store's name to duplicateName
@@ -353,7 +351,7 @@ describe('StoresController (Integration)', () => {
         .send({ name: duplicateName })
         .expect(409);
 
-      expect(response.body.message).toBe('Tên cửa hàng đã tồn tại');
+      expect(response.body.message).toBe('Store name already exists');
     });
   });
 
@@ -365,9 +363,9 @@ describe('StoresController (Integration)', () => {
         .post('/stores')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
-          name: `Cửa hàng Lock Test ${Date.now()}_${Math.random().toString(36).substring(7)}`,
+          name: `Lock Test Store ${Date.now()}_${Math.random().toString(36).substring(7)}`,
           phone: '0905555555',
-          address: 'Địa chỉ E',
+          address: 'Address E',
         });
       storeId = response.body.data.id;
     });
@@ -420,9 +418,9 @@ describe('StoresController (Integration)', () => {
         .post('/stores')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
-          name: `Cửa hàng Unlock Test ${Date.now()}_${Math.random().toString(36).substring(7)}`,
+          name: `Unlock Test Store ${Date.now()}_${Math.random().toString(36).substring(7)}`,
           phone: '0905555556',
-          address: 'Địa chỉ F',
+          address: 'Address F',
         });
       storeId = response.body.data.id;
       // Lock it first

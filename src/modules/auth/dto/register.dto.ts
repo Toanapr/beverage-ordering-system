@@ -4,24 +4,24 @@ import { IsEmail, IsNotEmpty, IsString, MinLength } from 'class-validator';
 export class RegisterDto {
   @ApiProperty({
     example: 'test@gmail.com',
-    description: 'Email dùng để đăng ký, phải là duy nhất',
+    description: 'Email used for registration, must be unique',
   })
-  @IsEmail({}, { message: 'Email không đúng định dạng' })
-  @IsNotEmpty({ message: 'Email không được để trống ' })
+  @IsEmail({}, { message: 'Invalid email format' })
+  @IsNotEmpty({ message: 'Email must not be empty' })
   email!: string;
 
   @ApiProperty({
     example: 'password123',
-    description: 'Mật khẩu, tối thiểu 6 ký tự',
+    description: 'Password, minimum 6 characters',
     minLength: 6,
   })
   @IsString()
-  @IsNotEmpty({ message: 'Mật khẩu không được để trống' })
-  @MinLength(6, { message: 'Mật khẩu phải có ít nhất 6 kí tự' })
+  @IsNotEmpty({ message: 'Password must not be empty' })
+  @MinLength(6, { message: 'Password must be at least 6 characters' })
   password!: string;
 
-  @ApiProperty({ example: 'Nguyễn Văn A', description: 'Họ và tên đầy đủ' })
+  @ApiProperty({ example: 'John Doe', description: 'Full name' })
   @IsString()
-  @IsNotEmpty({ message: 'Họ và tên không được để trống' })
+  @IsNotEmpty({ message: 'Full name must not be empty' })
   fullName!: string;
 }

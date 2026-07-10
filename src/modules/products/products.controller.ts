@@ -33,13 +33,11 @@ export class ProductsController {
   async findAll(@Query() query: QueryProductDto, @CurrentUser() user: User) {
     if (user.role === UserRole.STAFF) {
       if (query.storeId) {
-        throw new BadRequestException(
-          'Nhân viên không được tự lọc theo storeId',
-        );
+        throw new BadRequestException('Staff cannot filter by storeId');
       }
       if (!user.storeId) {
         throw new ForbiddenException(
-          'Nhân viên chưa được gán vào cửa hàng nào',
+          'Staff has not been assigned to any store',
         );
       }
       query.storeId = user.storeId;

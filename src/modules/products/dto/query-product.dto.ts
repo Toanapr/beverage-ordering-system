@@ -6,15 +6,15 @@ import { ProductStatus } from 'src/common/enums/product-status.enum';
 export class QueryProductDto extends PaginationQueryDto {
   @ApiPropertyOptional({
     enum: ProductStatus,
-    description: 'Lọc theo trạng thái sản phẩm',
+    description: 'Filter by product status',
   })
   @IsOptional()
-  @IsEnum(ProductStatus, { message: 'status không hợp lệ' })
+  @IsEnum(ProductStatus, { message: 'invalid status' })
   status?: ProductStatus;
 
   @ApiPropertyOptional({
     description:
-      '[Chỉ áp dụng cho ADMIN] Lọc theo storeId cụ thể. STAFF luôn bị ép về store đang được gán, giá trị này (nếu có truyền) sẽ bị bỏ qua.',
+      '[ADMIN only] Filter by specific storeId. STAFF is always forced to their assigned store, this value (if passed) will be ignored.',
   })
   @IsOptional()
   @IsUUID()
