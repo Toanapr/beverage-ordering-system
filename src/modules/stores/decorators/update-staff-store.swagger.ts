@@ -17,7 +17,7 @@ export const UpdateStaffStoreSwagger = () =>
     ApiOperation({
       summary: '[STAFF] Update assigned store',
       description:
-        'Allows updating name, phone, address, and isOpen. Staff cannot change the lock status or ratings.',
+        'Allows updating name, phone, address, and isOpen. Set isOpen to true to open the store or false to temporarily close it. Staff cannot change the lock status or ratings.',
     }),
     ApiSuccessResponse(StoreResponseDto, {
       description: 'Assigned store updated successfully',

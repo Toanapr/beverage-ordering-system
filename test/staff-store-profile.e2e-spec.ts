@@ -179,7 +179,6 @@ describe('Staff Store Profile (Integration)', () => {
         .send({
           phone: '0909999999',
           address: 'Updated assigned address',
-          isOpen: false,
         })
         .expect(200);
 
@@ -188,7 +187,6 @@ describe('Staff Store Profile (Integration)', () => {
           id: assignedStoreId,
           phone: '0909999999',
           address: 'Updated assigned address',
-          isOpen: false,
         }),
       );
 
@@ -199,11 +197,39 @@ describe('Staff Store Profile (Integration)', () => {
       expect(otherStoreResponse.body.data.address).toBe('Other address');
     });
 
+    it('should allow staff to temporarily close and reopen the assigned store', async () => {
+      const closeResponse = await request(app.getHttpServer())
+        .patch('/staff/store')
+        .set('Authorization', `Bearer ${staffToken}`)
+        .send({ isOpen: false })
+        .expect(200);
+
+      expect(closeResponse.body.data).toEqual(
+        expect.objectContaining({ id: assignedStoreId, isOpen: false }),
+      );
+
+      const reopenResponse = await request(app.getHttpServer())
+        .patch('/staff/store')
+        .set('Authorization', `Bearer ${staffToken}`)
+        .send({ isOpen: true })
+        .expect(200);
+
+      expect(reopenResponse.body.data).toEqual(
+        expect.objectContaining({ id: assignedStoreId, isOpen: true }),
+      );
+    });
+
     it('should validate profile fields', async () => {
       await request(app.getHttpServer())
         .patch('/staff/store')
         .set('Authorization', `Bearer ${staffToken}`)
         .send({ phone: '' })
+        .expect(400);
+
+      await request(app.getHttpServer())
+        .patch('/staff/store')
+        .set('Authorization', `Bearer ${staffToken}`)
+        .send({ isOpen: 'closed' })
         .expect(400);
     });
 
