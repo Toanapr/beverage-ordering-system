@@ -13,16 +13,16 @@ export const LockStoreSwagger = () =>
   applyDecorators(
     ApiBearerAuth(),
     ApiOperation({
-      summary: '[ADMIN] Khóa cửa hàng',
+      summary: '[ADMIN] Lock store',
       description:
-        'Store bị khóa sẽ không hiển thị ở API public và không thể nhận đơn hàng mới.',
+        'Locked store will not be displayed in public API and cannot receive new orders.',
     }),
     ApiSuccessResponse(StoreResponseDto, {
-      description: 'Khóa cửa hàng thành công',
+      description: 'Store locked successfully',
     }),
     ApiUnauthorizedResponse({
-      description: 'Chưa đăng nhập hoặc access token không hợp lệ',
+      description: 'Not logged in or access token is invalid',
     }),
-    ApiForbiddenResponse({ description: 'Không có quyền ADMIN' }),
-    ApiNotFoundResponse({ description: 'Không tìm thấy cửa hàng' }),
+    ApiForbiddenResponse({ description: 'Forbidden: Admin access required' }),
+    ApiNotFoundResponse({ description: 'Store not found' }),
   );

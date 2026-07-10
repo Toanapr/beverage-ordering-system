@@ -10,14 +10,14 @@ import { ApiSuccessResponse } from 'src/common/decorators/swagger/api-success-re
 export const LoginSwagger = () =>
   applyDecorators(
     ApiOperation({
-      summary: 'Đăng nhập',
-      description: 'Api đăng nhập',
+      summary: 'Login',
+      description: 'Login API',
     }),
     ApiSuccessResponse(LoginResponseDto, {
-      description: 'Đăng nhập thành công',
+      description: 'Login successful',
     }),
     ApiUnauthorizedResponse({
-      description: 'Email hoặc mật khẩu không chính xác',
+      description: 'Incorrect email or password',
     }),
     ApiForbiddenResponse({ description: 'Account has been locked' }),
   );

@@ -12,15 +12,15 @@ export const RefreshSwagger = () =>
   applyDecorators(
     ApiCookieAuth('refreshToken'),
     ApiOperation({
-      summary: 'Làm mới access token',
+      summary: 'Refresh access token',
       description:
-        'Đọc refreshToken từ httpOnly cookie, không nhận qua body nữa.',
+        'Read refreshToken from httpOnly cookie, no longer received via body.',
     }),
     ApiSuccessResponse(AccessTokenResponseDto, {
-      description: 'Refresh thành công',
+      description: 'Refresh successful',
     }),
     ApiUnauthorizedResponse({
-      description: 'Refresh token không hợp lệ, đã hết hạn hoặc không tồn tại',
+      description: 'Invalid, expired, or non-existent refresh token',
     }),
     ApiForbiddenResponse({
       description: 'Account does not exist or has been locked',

@@ -27,7 +27,7 @@ export class StoresService {
   async create(dto: CreateStoreDto): Promise<Store> {
     const existing = await this.storeRepository.findByName(dto.name);
     if (existing) {
-      throw new ConflictException('Tên cửa hàng đã tồn tại');
+      throw new ConflictException('Store name already exists');
     }
 
     return this.storeRepository.create({
@@ -83,7 +83,7 @@ export class StoresService {
   async findOneOrThrow(id: string): Promise<Store> {
     const store = await this.storeRepository.findById(id);
     if (!store) {
-      throw new NotFoundException('Không tìm thấy cửa hàng');
+      throw new NotFoundException('Store not found');
     }
     return store;
   }
@@ -99,7 +99,7 @@ export class StoresService {
   async findPublicOneOrThrow(id: string): Promise<Store> {
     const store = await this.findOneOrThrow(id);
     if (store.isLocked) {
-      throw new NotFoundException('Không tìm thấy cửa hàng');
+      throw new NotFoundException('Store not found');
     }
     return store;
   }
@@ -110,7 +110,7 @@ export class StoresService {
     if (dto.name && dto.name !== store.name) {
       const existing = await this.storeRepository.findByName(dto.name);
       if (existing) {
-        throw new ConflictException('Tên cửa hàng đã tồn tại');
+        throw new ConflictException('Store name already exists');
       }
     }
 
@@ -146,11 +146,11 @@ export class StoresService {
   async assertOrderable(id: string): Promise<Store> {
     const store = await this.findOneOrThrow(id);
     if (store.isLocked) {
-      throw new ForbiddenException('Cửa hàng đã bị khóa, không thể đặt hàng');
+      throw new ForbiddenException('Store is locked, cannot place order');
     }
     if (!store.isOpen) {
       throw new ForbiddenException(
-        'Cửa hàng hiện đang đóng cửa, không thể đặt hàng',
+        'Store is currently closed, cannot place order',
       );
     }
     return store;

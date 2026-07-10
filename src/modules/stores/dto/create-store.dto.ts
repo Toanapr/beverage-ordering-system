@@ -8,27 +8,27 @@ import {
 } from 'class-validator';
 
 export class CreateStoreDto {
-  @ApiProperty({ example: 'Trà Sữa ABC', maxLength: 100 })
+  @ApiProperty({ example: 'ABC Tea', maxLength: 100 })
   @IsString()
-  @IsNotEmpty({ message: 'Tên cửa hàng không được để trống' })
-  @MaxLength(100, { message: 'Tên cửa hàng tối đa 100 ký tự' })
+  @IsNotEmpty({ message: 'Store name must not be empty' })
+  @MaxLength(100, { message: 'Store name must be at most 100 characters' })
   name!: string;
 
   @ApiProperty({ example: '0901234567', maxLength: 20 })
   @IsString()
-  @IsNotEmpty({ message: 'Số điện thoại không được để trống' })
-  @MaxLength(20, { message: 'Số điện thoại tối đa 20 ký tự' })
+  @IsNotEmpty({ message: 'Phone number must not be empty' })
+  @MaxLength(20, { message: 'Phone number must be at most 20 characters' })
   phone!: string;
 
-  @ApiProperty({ example: '123 Nguyễn Trãi, Q.1, TP.HCM' })
+  @ApiProperty({ example: '123 Nguyen Trai, District 1, HCMC' })
   @IsString()
-  @IsNotEmpty({ message: 'Địa chỉ không được để trống' })
+  @IsNotEmpty({ message: 'Address must not be empty' })
   address!: string;
 
   @ApiPropertyOptional({
     example: true,
     default: true,
-    description: 'Cửa hàng có đang mở bán không (mặc định true khi tạo mới)',
+    description: 'Whether the store is open (defaults to true when created)',
   })
   @IsOptional()
   @IsBoolean()

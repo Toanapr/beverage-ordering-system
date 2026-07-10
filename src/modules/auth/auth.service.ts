@@ -39,7 +39,7 @@ export class AuthService {
     const emailExist = await this.authRepository.findByEmail(email);
 
     if (emailExist) {
-      throw new ConflictException('Email này đã được sử dụng!');
+      throw new ConflictException('Email is already in use');
     }
 
     const salt = await bcrypt.genSalt();
@@ -63,12 +63,12 @@ export class AuthService {
 
     const user = await this.authRepository.findByEmail(email);
     if (!user) {
-      throw new UnauthorizedException('Email hoặc mật khẩu không chính xác');
+      throw new UnauthorizedException('Incorrect email or password');
     }
 
     const isPasswordMatch = await bcrypt.compare(password, user.passwordHash);
     if (!isPasswordMatch) {
-      throw new UnauthorizedException('Email hoặc mật khẩu không chính xác');
+      throw new UnauthorizedException('Incorrect email or password');
     }
 
     if (user.isBanned) {
@@ -95,7 +95,7 @@ export class AuthService {
         secret: this.configService.get('JWT_REFRESH_SECRET'),
       });
     } catch {
-      throw new UnauthorizedException('Token không hợp lệ hoặc đã hết hạn');
+      throw new UnauthorizedException('Invalid or expired token');
     }
 
     const user = await this.authRepository.findById(decoded.sub);
@@ -105,10 +105,10 @@ export class AuthService {
       user.id,
     );
     if (!tokenRecord)
-      throw new UnauthorizedException('Token không hợp lệ hoặc đã hết hạn');
+      throw new UnauthorizedException('Invalid or expired token');
 
     const isMatch = await bcrypt.compare(refreshToken, tokenRecord.token_hash);
-    if (!isMatch) throw new UnauthorizedException('Token không hợp lệ');
+    if (!isMatch) throw new UnauthorizedException('Invalid token');
 
     const payload = { sub: user.id, email: user.email, role: user.role };
     const tokens = await this.generateTokens(payload);
@@ -119,7 +119,7 @@ export class AuthService {
 
   async logout(userId: string) {
     await this.refreshTokenRepository.revokeAllByUserId(userId);
-    return { message: 'Đăng xuất thành công!' };
+    return { message: 'Logout successful' };
   }
 
   private async generateTokens(payload: {

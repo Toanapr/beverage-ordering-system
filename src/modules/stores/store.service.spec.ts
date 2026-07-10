@@ -17,9 +17,9 @@ describe('StoresService', () => {
 
   const mockStore: Store = {
     id: 'store-1',
-    name: 'Trà Sữa ABC',
+    name: 'ABC Tea',
     phone: '0901234567',
-    address: '123 Nguyễn Trãi',
+    address: '123 Nguyen Trai',
     isOpen: true,
     isLocked: false,
     ratingAvg: 0,
@@ -60,13 +60,13 @@ describe('StoresService', () => {
       repository.create.mockResolvedValue(mockStore);
 
       const result = await service.create({
-        name: 'Trà Sữa ABC',
+        name: 'ABC Tea',
         phone: '0901234567',
-        address: '123 Nguyễn Trãi',
+        address: '123 Nguyen Trai',
       });
 
       expect(repository.create).toHaveBeenCalledWith(
-        expect.objectContaining({ name: 'Trà Sữa ABC', isOpen: true }),
+        expect.objectContaining({ name: 'ABC Tea', isOpen: true }),
       );
       expect(result).toEqual(mockStore);
     });
@@ -76,7 +76,7 @@ describe('StoresService', () => {
 
       await expect(
         service.create({
-          name: 'Trà Sữa ABC',
+          name: 'ABC Tea',
           phone: '0901234567',
           address: 'x',
         }),
@@ -245,7 +245,7 @@ describe('StoresService', () => {
       repository.findByName.mockResolvedValue({ ...mockStore, id: 'store-2' });
 
       await expect(
-        service.update('store-1', { name: 'Trùng Tên' }),
+        service.update('store-1', { name: 'Duplicate Name' }),
       ).rejects.toThrow(ConflictException);
     });
 

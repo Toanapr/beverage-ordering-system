@@ -12,13 +12,13 @@ import { StoreResponseDto } from '../dto/responses/store-response.dto';
 export const UnlockStoreSwagger = () =>
   applyDecorators(
     ApiBearerAuth(),
-    ApiOperation({ summary: '[ADMIN] Mở khóa cửa hàng' }),
+    ApiOperation({ summary: '[ADMIN] Unlock store' }),
     ApiSuccessResponse(StoreResponseDto, {
-      description: 'Mở khóa cửa hàng thành công',
+      description: 'Store unlocked successfully',
     }),
     ApiUnauthorizedResponse({
-      description: 'Chưa đăng nhập hoặc access token không hợp lệ',
+      description: 'Not logged in or access token is invalid',
     }),
-    ApiForbiddenResponse({ description: 'Không có quyền ADMIN' }),
-    ApiNotFoundResponse({ description: 'Không tìm thấy cửa hàng' }),
+    ApiForbiddenResponse({ description: 'Forbidden: Admin access required' }),
+    ApiNotFoundResponse({ description: 'Store not found' }),
   );

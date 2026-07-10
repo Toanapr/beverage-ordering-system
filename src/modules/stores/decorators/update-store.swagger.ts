@@ -14,15 +14,15 @@ import { StoreResponseDto } from '../dto/responses/store-response.dto';
 export const UpdateStoreSwagger = () =>
   applyDecorators(
     ApiBearerAuth(),
-    ApiOperation({ summary: '[ADMIN] Cập nhật thông tin cửa hàng' }),
+    ApiOperation({ summary: '[ADMIN] Update store information' }),
     ApiSuccessResponse(StoreResponseDto, {
-      description: 'Cập nhật thành công',
+      description: 'Store updated successfully',
     }),
-    ApiBadRequestResponse({ description: 'Dữ liệu không hợp lệ' }),
+    ApiBadRequestResponse({ description: 'Invalid data' }),
     ApiUnauthorizedResponse({
-      description: 'Chưa đăng nhập hoặc access token không hợp lệ',
+      description: 'Not logged in or access token is invalid',
     }),
-    ApiForbiddenResponse({ description: 'Không có quyền ADMIN' }),
-    ApiNotFoundResponse({ description: 'Không tìm thấy cửa hàng' }),
-    ApiConflictResponse({ description: 'Tên cửa hàng đã tồn tại' }),
+    ApiForbiddenResponse({ description: 'Forbidden: Admin access required' }),
+    ApiNotFoundResponse({ description: 'Store not found' }),
+    ApiConflictResponse({ description: 'Store name already exists' }),
   );

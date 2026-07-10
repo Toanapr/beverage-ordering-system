@@ -79,9 +79,9 @@ describe('AuthController (Integration)', () => {
         })
         .expect(400);
 
-      expect(response.body.message).toContain('Email không đúng định dạng');
+      expect(response.body.message).toContain('Invalid email format');
       expect(response.body.message).toContain(
-        'Mật khẩu phải có ít nhất 6 kí tự',
+        'Password must be at least 6 characters',
       );
     });
 
@@ -105,7 +105,7 @@ describe('AuthController (Integration)', () => {
         })
         .expect(409);
 
-      expect(response.body.message).toContain('Email này đã được sử dụng!');
+      expect(response.body.message).toContain('Email is already in use');
     });
   });
 
@@ -146,9 +146,7 @@ describe('AuthController (Integration)', () => {
         })
         .expect(401);
 
-      expect(response.body.message).toContain(
-        'Email hoặc mật khẩu không chính xác',
-      );
+      expect(response.body.message).toContain('Incorrect email or password');
       expect(getRefreshCookie(response)).toBeUndefined();
     });
 
@@ -161,9 +159,7 @@ describe('AuthController (Integration)', () => {
         })
         .expect(401);
 
-      expect(response.body.message).toContain(
-        'Email hoặc mật khẩu không chính xác',
-      );
+      expect(response.body.message).toContain('Incorrect email or password');
     });
 
     it('should fail (400 Bad Request) when email or password is missing', async () => {
@@ -344,10 +340,7 @@ describe('AuthController (Integration)', () => {
         .expect(200);
 
       expectSuccessEnvelope(response.body);
-      expect(response.body.data).toHaveProperty(
-        'message',
-        'Đăng xuất thành công!',
-      );
+      expect(response.body.data).toHaveProperty('message', 'Logout successful');
 
       const cookie = getRefreshCookie(response);
       expect(cookie).toBeDefined();

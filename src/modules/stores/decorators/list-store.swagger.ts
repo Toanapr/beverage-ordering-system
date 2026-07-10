@@ -6,9 +6,9 @@ import { ApiPaginatedResponse } from 'src/common/decorators/swagger/api-paginate
 export const ListStoreSwagger = () =>
   applyDecorators(
     ApiOperation({
-      summary: 'Danh sách cửa hàng (public)',
+      summary: 'Store list (public)',
       description:
-        'Hỗ trợ tìm kiếm (search theo tên), lọc (isOpen) và sort. Store bị khóa (isLocked=true) không bao giờ xuất hiện trong kết quả, kể cả khi truyền isLocked=true.',
+        'Supports search (by name), filter (isOpen), and sort. Locked stores (isLocked=true) never appear in the results, even if isLocked=true is passed.',
     }),
-    ApiPaginatedResponse(StoreResponseDto, 'Lấy danh sách cửa hàng thành công'),
+    ApiPaginatedResponse(StoreResponseDto, 'Stores retrieved successfully'),
   );

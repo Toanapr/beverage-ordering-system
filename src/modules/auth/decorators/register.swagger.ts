@@ -10,17 +10,17 @@ import { ApiSuccessResponse } from 'src/common/decorators/swagger/api-success-re
 export const RegisterSwagger = () =>
   applyDecorators(
     ApiOperation({
-      summary: 'Đăng ký tài khoản mới',
+      summary: 'Register a new account',
       description:
-        'Tạo tài khoản với role mặc định là "customer". Trả về thông tin user vừa tạo (không bao gồm mật khẩu).',
+        'Create account with default role "customer". Returns the created user details (excluding password).',
     }),
     ApiSuccessResponse(UserResponseDto, {
       status: 201,
-      description: 'Đăng ký thành công',
+      description: 'Registration successful',
     }),
-    ApiConflictResponse({ description: 'Email này đã được sử dụng!' }),
+    ApiConflictResponse({ description: 'Email is already in use' }),
     ApiBadRequestResponse({
       description:
-        'Dữ liệu không hợp lệ (email sai định dạng, mật khẩu quá ngắn, thiếu trường bắt buộc,...)',
+        'Invalid data (invalid email format, password too short, missing required fields, etc.)',
     }),
   );

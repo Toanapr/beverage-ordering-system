@@ -4,7 +4,7 @@ import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
 import { Type } from 'class-transformer';
 
 export class QueryStoreDto extends PaginationQueryDto {
-  @ApiPropertyOptional({ description: 'Lọc theo trạng thái đang mở bán' })
+  @ApiPropertyOptional({ description: 'Filter by whether the store is open' })
   @IsOptional()
   @Type(() => Boolean)
   @IsBoolean()
@@ -12,7 +12,7 @@ export class QueryStoreDto extends PaginationQueryDto {
 
   @ApiPropertyOptional({
     description:
-      'Lọc theo trạng thái bị khóa. LƯU Ý: API public (GET /stores, GET /stores/:id) luôn ép isLocked=false bất kể giá trị truyền vào.',
+      'Filter by locked status. NOTE: Public APIs (GET /stores, GET /stores/:id) always force isLocked=false regardless of the passed value.',
   })
   @IsOptional()
   @Type(() => Boolean)
