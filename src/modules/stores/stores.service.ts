@@ -90,7 +90,7 @@ export class StoresService {
 
   async findAssignedStore(storeId: string | null): Promise<Store> {
     if (!storeId) {
-      throw new ForbiddenException('Nhân viên chưa được phân công cửa hàng');
+      throw new ForbiddenException('Staff member has no assigned store');
     }
 
     return this.findOneOrThrow(storeId);
@@ -123,7 +123,7 @@ export class StoresService {
     dto: UpdateStoreDto,
   ): Promise<Store> {
     if (!storeId) {
-      throw new ForbiddenException('Nhân viên chưa được phân công cửa hàng');
+      throw new ForbiddenException('Staff member has no assigned store');
     }
 
     return this.update(storeId, dto);
