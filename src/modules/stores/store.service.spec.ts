@@ -277,7 +277,7 @@ describe('StoresService', () => {
   });
 
   describe('updateAssignedStore', () => {
-    it('should update the store assigned to the staff account', async () => {
+    it('should temporarily close the store assigned to the staff account', async () => {
       repository.findById.mockResolvedValue(mockStore);
       repository.update.mockResolvedValue({ ...mockStore, isOpen: false });
 
@@ -289,6 +289,20 @@ describe('StoresService', () => {
         isOpen: false,
       });
       expect(result.isOpen).toBe(false);
+    });
+
+    it('should reopen the store assigned to the staff account', async () => {
+      repository.findById.mockResolvedValue({ ...mockStore, isOpen: false });
+      repository.update.mockResolvedValue({ ...mockStore, isOpen: true });
+
+      const result = await service.updateAssignedStore('store-1', {
+        isOpen: true,
+      });
+
+      expect(repository.update).toHaveBeenCalledWith('store-1', {
+        isOpen: true,
+      });
+      expect(result.isOpen).toBe(true);
     });
 
     it('should throw ForbiddenException if staff has no assigned store', async () => {
