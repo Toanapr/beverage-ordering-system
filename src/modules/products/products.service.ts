@@ -4,6 +4,7 @@ import {
   type IProductRepository,
 } from './repositories/product-repository.interface';
 import { QueryProductDto } from './dto/query-product.dto';
+import { QueryPublicProductDto } from './dto/query-public-product.dto';
 import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
 import { Product } from './entities/product.entity';
 import { getOffset, paginate } from 'src/common/utils/pagination.util';
@@ -42,7 +43,41 @@ export class ProductsService {
     const product = await this.productRepository.findById(productId);
 
     if (!product) {
-      throw new NotFoundException('Product not found');
+      throw new NotFoundException('Không tìm thấy sản phẩm');
+    }
+
+    return product;
+  }
+
+  async findPublicList(
+    query: QueryPublicProductDto,
+  ): Promise<PaginatedResponseDto<Product>> {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 10;
+    const skip = getOffset(page, limit);
+
+    const [items, totalItems] = await this.productRepository.findPublicAndCount(
+      {
+        skip,
+        take: limit,
+        sortBy: query.sortBy ?? 'createdAt',
+        sortOrder: (query.sortOrder as SortOrder) ?? SortOrder.DESC,
+        filter: {
+          storeId: query.storeId,
+          categoryId: query.categoryId,
+          search: query.search,
+        },
+      },
+    );
+
+    return paginate(items, page, limit, totalItems);
+  }
+
+  async findPublicOneOrThrow(productId: string): Promise<Product> {
+    const product = await this.productRepository.findPublicById(productId);
+
+    if (!product) {
+      throw new NotFoundException('Không tìm thấy sản phẩm');
     }
 
     return product;

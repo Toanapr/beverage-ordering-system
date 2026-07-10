@@ -2,10 +2,12 @@ import { Injectable } from '@nestjs/common';
 import {
   IProductRepository,
   ProductListOptions,
+  PublicProductListOptions,
 } from './product-repository.interface';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Product } from '../entities/product.entity';
 import { Repository } from 'typeorm';
+import { ProductStatus } from 'src/common/enums/product-status.enum';
 
 const PRODUCT_SORTABLE_FIELDS: Record<string, string> = {
   name: 'product.name',
@@ -50,6 +52,53 @@ export class ProductRepository implements IProductRepository {
   async findById(id: string): Promise<Product | null> {
     try {
       return await this.typeOrmRepository.findOne({ where: { id } });
+    } catch {
+      return null;
+    }
+  }
+
+  async findPublicAndCount(
+    options: PublicProductListOptions,
+  ): Promise<[Product[], number]> {
+    const { skip, take, sortBy, sortOrder, filter } = options;
+    const qb = this.typeOrmRepository.createQueryBuilder('product');
+
+    qb.innerJoin('product.store', 'store');
+    qb.andWhere('store.isOpen = :isOpen', { isOpen: true });
+    qb.andWhere('store.isLocked = :isLocked', { isLocked: false });
+    qb.andWhere('product.status = :status', { status: ProductStatus.ACTIVE });
+
+    if (filter.storeId) {
+      qb.andWhere('product.storeId = :storeId', { storeId: filter.storeId });
+    }
+
+    if (filter.categoryId) {
+      qb.andWhere('product.categoryId = :categoryId', {
+        categoryId: filter.categoryId,
+      });
+    }
+
+    if (filter.search) {
+      qb.andWhere('product.name ILIKE :search', {
+        search: `%${filter.search}%`,
+      });
+    }
+
+    const orderField = PRODUCT_SORTABLE_FIELDS[sortBy] ?? DEFAULT_SORT_FIELD;
+    qb.orderBy(orderField, sortOrder).skip(skip).take(take);
+
+    return qb.getManyAndCount();
+  }
+
+  async findPublicById(id: string): Promise<Product | null> {
+    try {
+      const qb = this.typeOrmRepository.createQueryBuilder('product');
+      qb.innerJoin('product.store', 'store');
+      qb.where('product.id = :id', { id });
+      qb.andWhere('product.status = :status', { status: ProductStatus.ACTIVE });
+      qb.andWhere('store.isOpen = :isOpen', { isOpen: true });
+      qb.andWhere('store.isLocked = :isLocked', { isLocked: false });
+      return await qb.getOne();
     } catch {
       return null;
     }
