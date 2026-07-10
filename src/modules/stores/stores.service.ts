@@ -88,6 +88,14 @@ export class StoresService {
     return store;
   }
 
+  async findAssignedStore(storeId: string | null): Promise<Store> {
+    if (!storeId) {
+      throw new ForbiddenException('Nhân viên chưa được phân công cửa hàng');
+    }
+
+    return this.findOneOrThrow(storeId);
+  }
+
   async findPublicOneOrThrow(id: string): Promise<Store> {
     const store = await this.findOneOrThrow(id);
     if (store.isLocked) {
@@ -108,6 +116,17 @@ export class StoresService {
 
     const updated = await this.storeRepository.update(id, dto);
     return updated as Store;
+  }
+
+  async updateAssignedStore(
+    storeId: string | null,
+    dto: UpdateStoreDto,
+  ): Promise<Store> {
+    if (!storeId) {
+      throw new ForbiddenException('Nhân viên chưa được phân công cửa hàng');
+    }
+
+    return this.update(storeId, dto);
   }
 
   async lock(id: string): Promise<Store> {
