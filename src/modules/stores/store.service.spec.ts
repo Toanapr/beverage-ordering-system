@@ -148,6 +148,24 @@ describe('StoresService', () => {
     });
   });
 
+  describe('findAssignedStore', () => {
+    it('should return the store assigned to the staff account', async () => {
+      repository.findById.mockResolvedValue(mockStore);
+
+      await expect(service.findAssignedStore('store-1')).resolves.toEqual(
+        mockStore,
+      );
+      expect(repository.findById).toHaveBeenCalledWith('store-1');
+    });
+
+    it('should throw ForbiddenException if staff has no assigned store', async () => {
+      await expect(service.findAssignedStore(null)).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(repository.findById).not.toHaveBeenCalled();
+    });
+  });
+
   describe('lock / unlock', () => {
     it('lock should set isLocked = true', async () => {
       repository.findById.mockResolvedValue(mockStore);
@@ -255,6 +273,29 @@ describe('StoresService', () => {
 
       const result = await service.update('store-1', { phone: '0999999999' });
       expect(result.phone).toBe('0999999999');
+    });
+  });
+
+  describe('updateAssignedStore', () => {
+    it('should update the store assigned to the staff account', async () => {
+      repository.findById.mockResolvedValue(mockStore);
+      repository.update.mockResolvedValue({ ...mockStore, isOpen: false });
+
+      const result = await service.updateAssignedStore('store-1', {
+        isOpen: false,
+      });
+
+      expect(repository.update).toHaveBeenCalledWith('store-1', {
+        isOpen: false,
+      });
+      expect(result.isOpen).toBe(false);
+    });
+
+    it('should throw ForbiddenException if staff has no assigned store', async () => {
+      await expect(
+        service.updateAssignedStore(null, { isOpen: false }),
+      ).rejects.toThrow(ForbiddenException);
+      expect(repository.update).not.toHaveBeenCalled();
     });
   });
 });
