@@ -593,9 +593,230 @@ describe('Orders (Integration)', () => {
   });
 
   // ==========================================
-  // 5. PATCH /orders/:id/cancel (Cancel Order) - Future tests
+  // 5. PATCH /orders/:id/cancel (Cancel Order)
   // ==========================================
   describe('PATCH /orders/:id/cancel (Cancel Order)', () => {
-    // TODO: Add tests for order cancellation rules and limits
+    let orderId: string;
+    let otherCustomerToken: string;
+
+    beforeAll(async () => {
+      // 1. Create a pending order for customer
+      const payload = {
+        storeId: storeIdOpen,
+        receiverName: 'John Cancel',
+        receiverPhone: '0901111111',
+        deliveryAddress: '123 Cancel Road',
+        items: [{ productId: productActive, quantity: 1 }],
+      };
+
+      const response = await request(app.getHttpServer())
+        .post('/orders')
+        .set('Authorization', `Bearer ${customerToken}`)
+        .send(payload)
+        .expect(201);
+
+      orderId = response.body.data.id;
+
+      // 2. Create and login another customer
+      const otherCustEmail = `other-cust-${Date.now()}@gmail.com`;
+      await request(app.getHttpServer())
+        .post('/auth/register')
+        .send({ email: otherCustEmail, password, fullName: 'Other Customer' })
+        .expect(201);
+
+      const loginOther = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: otherCustEmail, password })
+        .expect(200);
+
+      otherCustomerToken = loginOther.body.data.accessToken;
+    });
+
+    it('should fail with 401 if no authorization header is provided', async () => {
+      const response = await request(app.getHttpServer())
+        .patch(`/orders/${orderId}/cancel`)
+        .send({ cancelReason: 'Changed mind' })
+        .expect(401);
+
+      expect(response.body.success).toBe(false);
+    });
+
+    it('should fail with 401 if invalid token is provided', async () => {
+      const response = await request(app.getHttpServer())
+        .patch(`/orders/${orderId}/cancel`)
+        .set('Authorization', 'Bearer invalid-token')
+        .send({ cancelReason: 'Changed mind' })
+        .expect(401);
+
+      expect(response.body.success).toBe(false);
+    });
+
+    it('should fail with 403 if user role is not CUSTOMER (e.g. STAFF)', async () => {
+      const response = await request(app.getHttpServer())
+        .patch(`/orders/${orderId}/cancel`)
+        .set('Authorization', `Bearer ${staffToken}`)
+        .send({ cancelReason: 'Changed mind' })
+        .expect(403);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.message).toBe(
+        'You do not have permission to access this resource',
+      );
+    });
+
+    it('should fail with 400 if cancelReason is missing', async () => {
+      const response = await request(app.getHttpServer())
+        .patch(`/orders/${orderId}/cancel`)
+        .set('Authorization', `Bearer ${customerToken}`)
+        .send({})
+        .expect(400);
+
+      expect(response.body.success).toBe(false);
+    });
+
+    it('should fail with 400 if cancelReason is empty', async () => {
+      const response = await request(app.getHttpServer())
+        .patch(`/orders/${orderId}/cancel`)
+        .set('Authorization', `Bearer ${customerToken}`)
+        .send({ cancelReason: '' })
+        .expect(400);
+
+      expect(response.body.success).toBe(false);
+    });
+
+    it('should fail with 400 if order ID is not a valid UUID', async () => {
+      await request(app.getHttpServer())
+        .patch('/orders/invalid-uuid/cancel')
+        .set('Authorization', `Bearer ${customerToken}`)
+        .send({ cancelReason: 'Changed mind' })
+        .expect(400);
+    });
+
+    it('should fail with 404 if the order does not exist', async () => {
+      const nonExistentOrderId = '00000000-0000-0000-0000-000000000000';
+      const response = await request(app.getHttpServer())
+        .patch(`/orders/${nonExistentOrderId}/cancel`)
+        .set('Authorization', `Bearer ${customerToken}`)
+        .send({ cancelReason: 'Changed mind' })
+        .expect(404);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.message).toBe('Order not found');
+    });
+
+    it('should fail with 404 if the order belongs to a different customer', async () => {
+      const response = await request(app.getHttpServer())
+        .patch(`/orders/${orderId}/cancel`)
+        .set('Authorization', `Bearer ${otherCustomerToken}`)
+        .send({ cancelReason: 'Changed mind' })
+        .expect(404);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.message).toBe('Order not found');
+    });
+
+    it('should fail with 400 if the order is already in PREPARING status', async () => {
+      // 1. Create another order
+      const res = await request(app.getHttpServer())
+        .post('/orders')
+        .set('Authorization', `Bearer ${customerToken}`)
+        .send({
+          storeId: storeIdOpen,
+          receiverName: 'John Preparing',
+          receiverPhone: '0901111111',
+          deliveryAddress: '123 Cancel Road',
+          items: [{ productId: productActive, quantity: 1 }],
+        })
+        .expect(201);
+      const targetOrderId = res.body.data.id;
+
+      // 2. Query to change status to preparing
+      await dataSource.query(
+        `UPDATE orders SET status = 'preparing' WHERE id = $1`,
+        [targetOrderId],
+      );
+
+      // 3. Attempt to cancel
+      const response = await request(app.getHttpServer())
+        .patch(`/orders/${targetOrderId}/cancel`)
+        .set('Authorization', `Bearer ${customerToken}`)
+        .send({ cancelReason: 'Changed mind' })
+        .expect(400);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.message).toBe(
+        'Only pending orders can be cancelled',
+      );
+    });
+
+    it('should fail with 400 if the order is already in COMPLETED status', async () => {
+      // 1. Create another order
+      const res = await request(app.getHttpServer())
+        .post('/orders')
+        .set('Authorization', `Bearer ${customerToken}`)
+        .send({
+          storeId: storeIdOpen,
+          receiverName: 'John Completed',
+          receiverPhone: '0901111111',
+          deliveryAddress: '123 Cancel Road',
+          items: [{ productId: productActive, quantity: 1 }],
+        })
+        .expect(201);
+      const targetOrderId = res.body.data.id;
+
+      // 2. Query to change status to completed
+      await dataSource.query(
+        `UPDATE orders SET status = 'completed' WHERE id = $1`,
+        [targetOrderId],
+      );
+
+      // 3. Attempt to cancel
+      const response = await request(app.getHttpServer())
+        .patch(`/orders/${targetOrderId}/cancel`)
+        .set('Authorization', `Bearer ${customerToken}`)
+        .send({ cancelReason: 'Changed mind' })
+        .expect(400);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.message).toBe(
+        'Only pending orders can be cancelled',
+      );
+    });
+
+    it('should successfully cancel a pending order and update status and cancelReason', async () => {
+      const response = await request(app.getHttpServer())
+        .patch(`/orders/${orderId}/cancel`)
+        .set('Authorization', `Bearer ${customerToken}`)
+        .send({ cancelReason: 'Not hungry anymore' })
+        .expect(200);
+
+      expectSuccessEnvelope(response.body);
+
+      const order = response.body.data;
+      expect(order.status).toBe('cancelled');
+      expect(order.cancelReason).toBe('Not hungry anymore');
+
+      // Verify in DB
+      const dbOrder = await dataSource.query(
+        `SELECT * FROM orders WHERE id = $1`,
+        [orderId],
+      );
+      expect(dbOrder).toHaveLength(1);
+      expect(dbOrder[0].status).toBe('cancelled');
+      expect(dbOrder[0].cancel_reason).toBe('Not hungry anymore');
+    });
+
+    it('should fail with 400 if the order is already in CANCELLED status', async () => {
+      const response = await request(app.getHttpServer())
+        .patch(`/orders/${orderId}/cancel`)
+        .set('Authorization', `Bearer ${customerToken}`)
+        .send({ cancelReason: 'Another reason' })
+        .expect(400);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.message).toBe(
+        'Only pending orders can be cancelled',
+      );
+    });
   });
 });

@@ -1,4 +1,9 @@
-import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import {
   I_ORDER_REPOSITORY,
   type IOrderRepository,
@@ -7,6 +12,7 @@ import { StoresService } from '../stores/stores.service';
 import { DataSource } from 'typeorm';
 import { generateOrderCode } from 'src/common/utils/order-code.util';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { CancelOrderDto } from './dto/cancel-order.dto';
 import { Order } from './entities/order.entity';
 import { OrderItemComputed } from './types/order-item-computed';
 import { ProductsService } from '../products/products.service';
@@ -112,5 +118,22 @@ export class OrdersService {
     throw new BadRequestException(
       'Could not generate unique order code, please try again',
     );
+  }
+
+  async cancel(
+    orderId: string,
+    customerId: string,
+    dto: CancelOrderDto,
+  ): Promise<Order> {
+    const order = await this.orderRepository.findById(orderId);
+    if (!order || order.customerId !== customerId) {
+      throw new NotFoundException('Order not found');
+    }
+    if (order.status !== OrderStatus.PENDING) {
+      throw new BadRequestException('Only pending orders can be cancelled');
+    }
+    order.status = OrderStatus.CANCELLED;
+    order.cancelReason = dto.cancelReason;
+    return this.orderRepository.save(order);
   }
 }

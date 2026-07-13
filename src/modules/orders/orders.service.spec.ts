@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { IOrderRepository } from './repositories/order-repository.interface';
 import { StoresService } from '../stores/stores.service';
@@ -58,7 +58,9 @@ describe('OrdersService', () => {
     jest.clearAllMocks();
 
     orderRepository = {
-      findByOrderCode: jest.fn(),
+      findById: jest.fn(),
+      findByOrderCode: jest.fn().mockResolvedValue(null),
+      save: jest.fn((order) => Promise.resolve(order)),
     };
 
     productsService = {
@@ -247,6 +249,64 @@ describe('OrdersService', () => {
       );
 
       expect(dataSource.transaction).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('cancel', () => {
+    it('should throw NotFoundException if order does not exist', async () => {
+      (orderRepository.findById as jest.Mock).mockResolvedValue(null);
+
+      await expect(
+        service.cancel('order-1', 'customer-1', { cancelReason: 'No need' }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw NotFoundException if order belongs to a different customer', async () => {
+      (orderRepository.findById as jest.Mock).mockResolvedValue({
+        id: 'order-1',
+        customerId: 'other-customer',
+        status: OrderStatus.PENDING,
+      });
+
+      await expect(
+        service.cancel('order-1', 'customer-1', { cancelReason: 'No need' }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw BadRequestException if order is not in pending status', async () => {
+      (orderRepository.findById as jest.Mock).mockResolvedValue({
+        id: 'order-1',
+        customerId: 'customer-1',
+        status: OrderStatus.PREPARING,
+      });
+
+      await expect(
+        service.cancel('order-1', 'customer-1', { cancelReason: 'No need' }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should successfully cancel a pending order and update status and reason', async () => {
+      const order = {
+        id: 'order-1',
+        customerId: 'customer-1',
+        status: OrderStatus.PENDING,
+        cancelReason: null,
+      };
+      (orderRepository.findById as jest.Mock).mockResolvedValue(order);
+
+      const result = await service.cancel('order-1', 'customer-1', {
+        cancelReason: 'Changed mind',
+      });
+
+      expect(result.status).toBe(OrderStatus.CANCELLED);
+      expect(result.cancelReason).toBe('Changed mind');
+      expect(orderRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'order-1',
+          status: OrderStatus.CANCELLED,
+          cancelReason: 'Changed mind',
+        }),
+      );
     });
   });
 });
