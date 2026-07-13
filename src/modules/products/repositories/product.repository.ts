@@ -6,7 +6,7 @@ import {
 } from './product-repository.interface';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Product } from '../entities/product.entity';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { ProductStatus } from 'src/common/enums/product-status.enum';
 
 const PRODUCT_SORTABLE_FIELDS: Record<string, string> = {
@@ -54,6 +54,15 @@ export class ProductRepository implements IProductRepository {
       return await this.typeOrmRepository.findOne({ where: { id } });
     } catch {
       return null;
+    }
+  }
+
+  async findByIds(ids: string[]): Promise<Product[]> {
+    try {
+      if (!ids || ids.length === 0) return [];
+      return await this.typeOrmRepository.findBy({ id: In(ids) });
+    } catch {
+      return [];
     }
   }
 

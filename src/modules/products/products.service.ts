@@ -49,6 +49,10 @@ export class ProductsService {
     return product;
   }
 
+  async findByIds(productIds: string[]): Promise<Product[]> {
+    return this.productRepository.findByIds(productIds);
+  }
+
   async findPublicList(
     query: QueryPublicProductDto,
   ): Promise<PaginatedResponseDto<Product>> {

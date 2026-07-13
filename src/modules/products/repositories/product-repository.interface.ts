@@ -35,6 +35,7 @@ export const I_PRODUCT_REPOSITORY = 'I_PRODUCT_REPOSITORY';
 export interface IProductRepository {
   findAndCount(options: ProductListOptions): Promise<[Product[], number]>;
   findById(id: string): Promise<Product | null>;
+  findByIds(ids: string[]): Promise<Product[]>;
   findPublicAndCount(
     options: PublicProductListOptions,
   ): Promise<[Product[], number]>;
