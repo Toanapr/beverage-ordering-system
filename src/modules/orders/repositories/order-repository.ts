@@ -14,4 +14,12 @@ export class OrderRepository implements IOrderRepository {
   async findByOrderCode(orderCode: string): Promise<Order | null> {
     return this.typeOrmRepository.findOne({ where: { orderCode } });
   }
+
+  async findById(id: string): Promise<Order | null> {
+    return this.typeOrmRepository.findOne({ where: { id } });
+  }
+
+  async save(order: Order): Promise<Order> {
+    return this.typeOrmRepository.save(order);
+  }
 }
