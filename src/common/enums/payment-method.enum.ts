@@ -1,3 +1,3 @@
 export enum PaymentMethod {
-    COD = 'COD',
+  COD = 'COD',
 }

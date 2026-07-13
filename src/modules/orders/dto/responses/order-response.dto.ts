@@ -4,48 +4,48 @@ import { PaymentMethod } from 'src/common/enums/payment-method.enum';
 import { OrderItemResponseDto } from './order-item-response.dto';
 
 export class OrderResponseDto {
-    @ApiProperty()
-    id!: string;
+  @ApiProperty()
+  id!: string;
 
-    @ApiProperty({ example: '8H2F9D3K' })
-    orderCode!: string;
+  @ApiProperty({ example: '8H2F9D3K' })
+  orderCode!: string;
 
-    @ApiProperty()
-    customerId!: string;
+  @ApiProperty()
+  customerId!: string;
 
-    @ApiProperty()
-    storeId!: string;
+  @ApiProperty()
+  storeId!: string;
 
-    @ApiProperty({ example: 'John Doe' })
-    receiverName!: string;
+  @ApiProperty({ example: 'John Doe' })
+  receiverName!: string;
 
-    @ApiProperty({ example: '0901234567' })
-    receiverPhone!: string;
+  @ApiProperty({ example: '0901234567' })
+  receiverPhone!: string;
 
-    @ApiProperty({ example: '123 Main Street, New York' })
-    deliveryAddress!: string;
+  @ApiProperty({ example: '123 Main Street, New York' })
+  deliveryAddress!: string;
 
-    @ApiProperty({ example: 60000 })
-    subtotal!: number;
+  @ApiProperty({ example: 60000 })
+  subtotal!: number;
 
-    @ApiProperty({ example: 60000 })
-    totalAmount!: number;
+  @ApiProperty({ example: 60000 })
+  totalAmount!: number;
 
-    @ApiProperty({ enum: PaymentMethod, example: PaymentMethod.COD })
-    paymentMethod!: PaymentMethod;
+  @ApiProperty({ enum: PaymentMethod, example: PaymentMethod.COD })
+  paymentMethod!: PaymentMethod;
 
-    @ApiProperty({ enum: OrderStatus, example: OrderStatus.PENDING })
-    status!: OrderStatus;
+  @ApiProperty({ enum: OrderStatus, example: OrderStatus.PENDING })
+  status!: OrderStatus;
 
-    @ApiProperty({ nullable: true, example: null })
-    cancelReason!: string | null;
+  @ApiProperty({ nullable: true, example: null })
+  cancelReason!: string | null;
 
-    @ApiProperty({ type: [OrderItemResponseDto] })
-    items!: OrderItemResponseDto[];
+  @ApiProperty({ type: [OrderItemResponseDto] })
+  items!: OrderItemResponseDto[];
 
-    @ApiProperty()
-    createdAt!: Date;
+  @ApiProperty()
+  createdAt!: Date;
 
-    @ApiProperty()
-    updatedAt!: Date;
+  @ApiProperty()
+  updatedAt!: Date;
 }

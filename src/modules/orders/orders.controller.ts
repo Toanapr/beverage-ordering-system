@@ -7,17 +7,19 @@ import { CreateOrderDto } from './dto/create-order.dto';
 import { RolesGuard } from 'src/common/guards/roles.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { UserRole } from 'src/common/enums/role.enum';
+import { CreateOrderSwagger } from './decorators';
 
 @ApiTags('Orders')
 @Controller('orders')
 @UseGuards(JwtAuthGuard)
 export class OrdersController {
-    constructor(private readonly ordersService: OrdersService) { }
+  constructor(private readonly ordersService: OrdersService) {}
 
-    @Post()
-    @UseGuards(RolesGuard)
-    @Roles(UserRole.CUSTOMER)
-    create(@CurrentUser('sub') customerId: string, @Body() dto: CreateOrderDto) {
-        return this.ordersService.create(customerId, dto);
-    }
+  @Post()
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.CUSTOMER)
+  @CreateOrderSwagger()
+  create(@CurrentUser('sub') customerId: string, @Body() dto: CreateOrderDto) {
+    return this.ordersService.create(customerId, dto);
+  }
 }

@@ -11,12 +11,16 @@ import { ProductsModule } from '../products/products.module';
 import { OrderRepository } from './repositories/order-repository';
 
 @Module({
-    imports: [TypeOrmModule.forFeature([Order, OrderItem, Product]), StoresModule, ProductsModule],
-    controllers: [OrdersController],
-    providers: [
-        OrdersService,
-        { provide: I_ORDER_REPOSITORY, useClass: OrderRepository },
-    ],
-    exports: [OrdersService],
+  imports: [
+    TypeOrmModule.forFeature([Order, OrderItem, Product]),
+    StoresModule,
+    ProductsModule,
+  ],
+  controllers: [OrdersController],
+  providers: [
+    OrdersService,
+    { provide: I_ORDER_REPOSITORY, useClass: OrderRepository },
+  ],
+  exports: [OrdersService],
 })
-export class OrdersModule { }
+export class OrdersModule {}

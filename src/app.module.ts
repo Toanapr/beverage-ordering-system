@@ -37,9 +37,9 @@ import { OrdersModule } from './modules/orders/orders.module';
     CategoriesModule,
     ProductsModule,
     UsersModule,
-    OrdersModule
+    OrdersModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule { }
+export class AppModule {}
