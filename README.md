@@ -29,7 +29,20 @@
 
 ```bash
 $ npm install
+$ docker compose up -d
+$ npm run migration:run
+$ npm run seed
 ```
+
+`npm run seed` creates an idempotent demo dataset with stores, categories,
+products, and orders in every supported status. It is an explicit development
+command and is not run automatically by migrations.
+
+| Role     | Email                       | Password      |
+| -------- | --------------------------- | ------------- |
+| Admin    | `demo.admin@example.com`    | `password123` |
+| Staff    | `demo.staff@example.com`    | `password123` |
+| Customer | `demo.customer@example.com` | `password123` |
 
 ## Compile and run the project
 

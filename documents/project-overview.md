@@ -60,9 +60,8 @@ cp .env.example .env
 # 4. Start PostgreSQL via Docker Compose
 docker compose up -d
 # 5. Run database migrations and seed demo data
-npx prisma migrate dev --name init
-# or (if using TypeORM)
 npm run migration:run
+npm run seed
 # 6. Start the app in development mode
 npm run start:dev
 ```
