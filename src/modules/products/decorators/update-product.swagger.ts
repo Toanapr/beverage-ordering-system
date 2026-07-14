@@ -13,7 +13,11 @@ import { ProductResponseDto } from '../dto/responses/product-response.dto';
 export const UpdateProductSwagger = () =>
   applyDecorators(
     ApiBearerAuth(),
-    ApiOperation({ summary: '[STAFF] Update a product in the assigned store' }),
+    ApiOperation({
+      summary: '[STAFF] Update a product in the assigned store',
+      description:
+        'Send any product fields to update. The optional status field accepts active, hidden, or out_of_stock; staff may switch directly between all three states. Only active products are visible in public product endpoints.',
+    }),
     ApiSuccessResponse(ProductResponseDto, {
       description: 'Product updated successfully',
     }),
