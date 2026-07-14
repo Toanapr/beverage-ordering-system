@@ -754,7 +754,130 @@ describe('Orders (Integration)', () => {
   });
 
   // ==========================================
-  // 3. GET /orders/staff/:id (Staff Order Details)
+  // 4. GET /orders/staff/statistics (Staff Order Statistics)
+  // ==========================================
+  describe('GET /orders/staff/statistics (Staff Order Statistics)', () => {
+    let unassignedStaffToken: string;
+
+    beforeAll(async () => {
+      const insertOrder = async (
+        suffix: string,
+        status: string,
+        totalAmount: number,
+        createdAt: string,
+      ) =>
+        dataSource.query(
+          `INSERT INTO orders (order_code, customer_id, store_id, receiver_name, receiver_phone, delivery_address, subtotal, total_amount, payment_method, status, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $11)`,
+          [
+            `STA${suffix}`,
+            customerId,
+            storeIdOpen,
+            'Statistics Customer',
+            '0901234567',
+            'Statistics Address',
+            totalAmount,
+            totalAmount,
+            'COD',
+            status,
+            createdAt,
+          ],
+        );
+
+      await insertOrder('0000001', 'completed', 100000, '2025-01-15T17:00:00Z');
+      await insertOrder('0000002', 'cancelled', 50000, '2025-01-16T16:59:59Z');
+      await insertOrder('0000003', 'pending', 30000, '2025-01-15T16:59:59Z');
+      await insertOrder('0000004', 'completed', 200000, '2025-01-16T17:00:00Z');
+
+      const unassignedStaffEmail = `staff-unassigned-statistics-${Date.now()}@gmail.com`;
+      const registerUnassignedStaff = await request(app.getHttpServer())
+        .post('/auth/register')
+        .send({
+          email: unassignedStaffEmail,
+          password,
+          fullName: 'Unassigned Statistics Staff',
+        })
+        .expect(201);
+      await dataSource.query(`UPDATE users SET role = 'staff' WHERE id = $1`, [
+        registerUnassignedStaff.body.data.id,
+      ]);
+      const loginUnassignedStaff = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: unassignedStaffEmail, password })
+        .expect(200);
+      unassignedStaffToken = loginUnassignedStaff.body.data.accessToken;
+    });
+
+    it('should reject unauthenticated, non-staff, and unassigned staff requests', async () => {
+      await request(app.getHttpServer())
+        .get('/orders/staff/statistics')
+        .expect(401);
+      await request(app.getHttpServer())
+        .get('/orders/staff/statistics')
+        .set('Authorization', `Bearer ${customerToken}`)
+        .expect(403);
+      await request(app.getHttpServer())
+        .get('/orders/staff/statistics')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(403);
+      await request(app.getHttpServer())
+        .get('/orders/staff/statistics')
+        .set('Authorization', `Bearer ${unassignedStaffToken}`)
+        .expect(403);
+    });
+
+    it('should return all-time statistics for the assigned store', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/orders/staff/statistics')
+        .set('Authorization', `Bearer ${staffToken}`)
+        .expect(200);
+
+      expectSuccessEnvelope(response.body);
+      expect(response.body.data).toEqual(
+        expect.objectContaining({
+          totalOrders: expect.any(Number),
+          completedOrders: expect.any(Number),
+          cancelledOrders: expect.any(Number),
+          completedRevenue: expect.any(Number),
+        }),
+      );
+      expect(response.body.data.completedRevenue).toBeGreaterThanOrEqual(
+        300000,
+      );
+    });
+
+    it('should filter statistics using inclusive Asia/Ho_Chi_Minh day boundaries', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/orders/staff/statistics?from=2025-01-16&to=2025-01-16')
+        .set('Authorization', `Bearer ${staffToken}`)
+        .expect(200);
+
+      expect(response.body.data).toEqual({
+        totalOrders: 2,
+        completedOrders: 1,
+        cancelledOrders: 1,
+        completedRevenue: 100000,
+      });
+    });
+
+    it('should reject invalid dates and invalid date ranges', async () => {
+      await request(app.getHttpServer())
+        .get('/orders/staff/statistics?from=2025/01/16')
+        .set('Authorization', `Bearer ${staffToken}`)
+        .expect(400);
+      await request(app.getHttpServer())
+        .get('/orders/staff/statistics?from=2025-02-30')
+        .set('Authorization', `Bearer ${staffToken}`)
+        .expect(400);
+      await request(app.getHttpServer())
+        .get('/orders/staff/statistics?from=2025-01-17&to=2025-01-16')
+        .set('Authorization', `Bearer ${staffToken}`)
+        .expect(400);
+    });
+  });
+
+  // ==========================================
+  // 5. GET /orders/staff/:id (Staff Order Details)
   // ==========================================
   describe('GET /orders/staff/:id (Staff Order Details)', () => {
     let orderId: string;
