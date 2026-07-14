@@ -1,4 +1,11 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
 import {
   I_PRODUCT_REPOSITORY,
   type IProductRepository,
@@ -9,13 +16,68 @@ import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
 import { Product } from './entities/product.entity';
 import { getOffset, paginate } from 'src/common/utils/pagination.util';
 import { SortOrder } from 'src/common/enums/sort-order.enum';
+import { CreateProductDto } from './dto/create-product.dto';
+import { UpdateProductDto } from './dto/update-product.dto';
+import { Category } from '../categories/entities/category.entity';
+import { Repository } from 'typeorm';
+import { ProductStatus } from 'src/common/enums/product-status.enum';
 
 @Injectable()
 export class ProductsService {
   constructor(
     @Inject(I_PRODUCT_REPOSITORY)
     private readonly productRepository: IProductRepository,
+
+    @InjectRepository(Category)
+    private readonly categoryRepository: Repository<Category>,
   ) {}
+
+  async create(
+    storeId: string | null,
+    dto: CreateProductDto,
+  ): Promise<Product> {
+    const assignedStoreId = this.getAssignedStoreId(storeId);
+    await this.assertCategoryInStore(dto.categoryId, assignedStoreId);
+
+    return this.productRepository.create({
+      storeId: assignedStoreId,
+      categoryId: dto.categoryId,
+      name: dto.name,
+      description: dto.description ?? null,
+      price: dto.price,
+      status: dto.status ?? ProductStatus.ACTIVE,
+    });
+  }
+
+  async update(
+    storeId: string | null,
+    productId: string,
+    dto: UpdateProductDto,
+  ): Promise<Product> {
+    const assignedStoreId = this.getAssignedStoreId(storeId);
+    if (Object.keys(dto).length === 0) {
+      throw new BadRequestException('At least one product field is required');
+    }
+
+    const product = await this.productRepository.findByIdAndStoreId(
+      productId,
+      assignedStoreId,
+    );
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    if (dto.categoryId) {
+      await this.assertCategoryInStore(dto.categoryId, assignedStoreId);
+    }
+
+    const updatedProduct = await this.productRepository.update(product.id, dto);
+    if (!updatedProduct) {
+      throw new NotFoundException('Product not found');
+    }
+
+    return updatedProduct;
+  }
 
   async findAll(
     query: QueryProductDto,
@@ -85,5 +147,24 @@ export class ProductsService {
     }
 
     return product;
+  }
+
+  private getAssignedStoreId(storeId: string | null): string {
+    if (!storeId) {
+      throw new ForbiddenException('Staff member has no assigned store');
+    }
+    return storeId;
+  }
+
+  private async assertCategoryInStore(
+    categoryId: string,
+    storeId: string,
+  ): Promise<void> {
+    const category = await this.categoryRepository.findOne({
+      where: { id: categoryId, storeId },
+    });
+    if (!category) {
+      throw new NotFoundException('Category not found');
+    }
   }
 }

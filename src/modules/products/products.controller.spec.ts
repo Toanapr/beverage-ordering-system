@@ -6,6 +6,7 @@ import { QueryProductDto } from './dto/query-product.dto';
 import { User } from 'src/modules/users/entities/user.entity';
 import { UserRole } from 'src/common/enums/role.enum';
 import { StoreProductOwnershipGuard } from './guards/store-product-ownership.guard';
+import { ProductStatus } from 'src/common/enums/product-status.enum';
 
 describe('ProductsController', () => {
   let controller: ProductsController;
@@ -52,6 +53,8 @@ describe('ProductsController', () => {
           useValue: {
             findAll: jest.fn(),
             findById: jest.fn(),
+            create: jest.fn(),
+            update: jest.fn(),
           },
         },
       ],
@@ -114,6 +117,32 @@ describe('ProductsController', () => {
 
       expect(service.findById).toHaveBeenCalledWith('product-1');
       expect(result).toEqual({ id: 'product-1' });
+    });
+  });
+
+  describe('create', () => {
+    it('should pass the authenticated staff store to the service', async () => {
+      service.create.mockResolvedValue({ id: 'product-1' } as any);
+      const dto = {
+        categoryId: 'category-1',
+        name: 'Milk Tea',
+        price: 35000,
+      };
+
+      await controller.create(mockStaff, dto);
+
+      expect(service.create).toHaveBeenCalledWith('store-1', dto);
+    });
+  });
+
+  describe('update', () => {
+    it('should pass the authenticated staff store to the service', async () => {
+      service.update.mockResolvedValue({ id: 'product-1' } as any);
+      const dto = { status: ProductStatus.HIDDEN };
+
+      await controller.update(mockStaff, 'product-1', dto);
+
+      expect(service.update).toHaveBeenCalledWith('store-1', 'product-1', dto);
     });
   });
 });

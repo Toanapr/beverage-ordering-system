@@ -57,6 +57,17 @@ export class ProductRepository implements IProductRepository {
     }
   }
 
+  async findByIdAndStoreId(
+    id: string,
+    storeId: string,
+  ): Promise<Product | null> {
+    try {
+      return await this.typeOrmRepository.findOne({ where: { id, storeId } });
+    } catch {
+      return null;
+    }
+  }
+
   async findByIds(ids: string[]): Promise<Product[]> {
     try {
       if (!ids || ids.length === 0) return [];
@@ -111,5 +122,15 @@ export class ProductRepository implements IProductRepository {
     } catch {
       return null;
     }
+  }
+
+  async create(data: Partial<Product>): Promise<Product> {
+    const product = this.typeOrmRepository.create(data);
+    return this.typeOrmRepository.save(product);
+  }
+
+  async update(id: string, data: Partial<Product>): Promise<Product | null> {
+    await this.typeOrmRepository.update(id, data);
+    return this.findById(id);
   }
 }

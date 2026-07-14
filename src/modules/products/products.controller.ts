@@ -1,10 +1,13 @@
 import {
   BadRequestException,
+  Body,
   Controller,
   ForbiddenException,
   Get,
   Param,
+  Patch,
   ParseUUIDPipe,
+  Post,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -22,9 +25,13 @@ import {
   GetProductSwagger,
   ListPublicProductSwagger,
   GetPublicProductSwagger,
+  CreateProductSwagger,
+  UpdateProductSwagger,
 } from './decorators';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { User } from 'src/modules/users/entities/user.entity';
+import { CreateProductDto } from './dto/create-product.dto';
+import { UpdateProductDto } from './dto/update-product.dto';
 
 @ApiTags('Products')
 @Controller('products')
@@ -41,6 +48,26 @@ export class ProductsController {
   @GetPublicProductSwagger()
   async findPublicOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.productsService.findPublicOneOrThrow(id);
+  }
+
+  @Post()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.STAFF)
+  @CreateProductSwagger()
+  create(@CurrentUser() staff: User, @Body() dto: CreateProductDto) {
+    return this.productsService.create(staff.storeId, dto);
+  }
+
+  @Patch(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.STAFF)
+  @UpdateProductSwagger()
+  update(
+    @CurrentUser() staff: User,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateProductDto,
+  ) {
+    return this.productsService.update(staff.storeId, id, dto);
   }
 
   @Get()

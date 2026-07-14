@@ -356,4 +356,122 @@ describe('Products (Integration)', () => {
         .expect(404);
     });
   });
+
+  describe('POST /products and PATCH /products/:id (Staff Product Management)', () => {
+    let createdProductId: string;
+
+    it('should allow staff to create a product in their assigned store', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/products')
+        .set('Authorization', `Bearer ${staffTokenA}`)
+        .send({
+          storeId: storeIdB,
+          categoryId: categoryIdA,
+          name: 'Staff Created Product',
+          description: 'Created by Store A staff',
+          price: 0,
+        })
+        .expect(201);
+
+      expectSuccessEnvelope(response.body);
+      expect(response.body.data.storeId).toBe(storeIdA);
+      expect(response.body.data.categoryId).toBe(categoryIdA);
+      expect(response.body.data.price).toBe(0);
+      expect(response.body.data.status).toBe('active');
+      createdProductId = response.body.data.id;
+    });
+
+    it('should expose a newly created active product publicly', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/products/public')
+        .expect(200);
+
+      expect(response.body.data.items).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ id: createdProductId }),
+        ]),
+      );
+    });
+
+    it('should reject invalid prices and categories outside the staff store', async () => {
+      await request(app.getHttpServer())
+        .post('/products')
+        .set('Authorization', `Bearer ${staffTokenA}`)
+        .send({ categoryId: categoryIdA, name: 'Negative Price', price: -1 })
+        .expect(400);
+
+      await request(app.getHttpServer())
+        .post('/products')
+        .set('Authorization', `Bearer ${staffTokenA}`)
+        .send({ categoryId: categoryIdB, name: 'Wrong Category', price: 10000 })
+        .expect(404);
+    });
+
+    it('should require staff authentication and role to create products', async () => {
+      const payload = {
+        categoryId: categoryIdA,
+        name: 'Unauthorized Product',
+        price: 10000,
+      };
+
+      await request(app.getHttpServer())
+        .post('/products')
+        .send(payload)
+        .expect(401);
+      await request(app.getHttpServer())
+        .post('/products')
+        .set('Authorization', `Bearer ${customerToken}`)
+        .send(payload)
+        .expect(403);
+      await request(app.getHttpServer())
+        .post('/products')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send(payload)
+        .expect(403);
+    });
+
+    it('should allow staff to update their product and hide it from public listing', async () => {
+      const response = await request(app.getHttpServer())
+        .patch(`/products/${createdProductId}`)
+        .set('Authorization', `Bearer ${staffTokenA}`)
+        .send({ name: 'Staff Updated Product', price: 0, status: 'hidden' })
+        .expect(200);
+
+      expectSuccessEnvelope(response.body);
+      expect(response.body.data.name).toBe('Staff Updated Product');
+      expect(response.body.data.status).toBe('hidden');
+
+      const publicResponse = await request(app.getHttpServer())
+        .get('/products/public')
+        .expect(200);
+      expect(publicResponse.body.data.items).not.toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ id: createdProductId }),
+        ]),
+      );
+    });
+
+    it('should reject empty, invalid, or cross-store updates', async () => {
+      await request(app.getHttpServer())
+        .patch(`/products/${createdProductId}`)
+        .set('Authorization', `Bearer ${staffTokenA}`)
+        .send({})
+        .expect(400);
+      await request(app.getHttpServer())
+        .patch(`/products/${createdProductId}`)
+        .set('Authorization', `Bearer ${staffTokenA}`)
+        .send({ price: -1 })
+        .expect(400);
+      await request(app.getHttpServer())
+        .patch(`/products/${activeProductB}`)
+        .set('Authorization', `Bearer ${staffTokenA}`)
+        .send({ name: 'Cross Store Update' })
+        .expect(404);
+      await request(app.getHttpServer())
+        .patch(`/products/${createdProductId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ name: 'Admin Update' })
+        .expect(403);
+    });
+  });
 });
