@@ -171,6 +171,28 @@ describe('ProductsService', () => {
       expect(result.price).toBe(0);
     });
 
+    it('should update only the product status without changing other fields', async () => {
+      repository.findByIdAndStoreId.mockResolvedValue(mockProduct);
+      repository.update.mockResolvedValue({
+        ...mockProduct,
+        status: ProductStatus.OUT_OF_STOCK,
+      });
+
+      const result = await service.update('store-1', 'product-1', {
+        status: ProductStatus.OUT_OF_STOCK,
+      });
+
+      expect(repository.update).toHaveBeenCalledWith('product-1', {
+        status: ProductStatus.OUT_OF_STOCK,
+      });
+      expect(result).toMatchObject({
+        name: mockProduct.name,
+        price: mockProduct.price,
+        categoryId: mockProduct.categoryId,
+        status: ProductStatus.OUT_OF_STOCK,
+      });
+    });
+
     it('should reject an empty update payload', async () => {
       await expect(service.update('store-1', 'product-1', {})).rejects.toThrow(
         BadRequestException,

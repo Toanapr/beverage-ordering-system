@@ -451,7 +451,46 @@ describe('Products (Integration)', () => {
       );
     });
 
-    it('should reject empty, invalid, or cross-store updates', async () => {
+    it('should allow direct status transitions and only expose active products publicly', async () => {
+      const outOfStockResponse = await request(app.getHttpServer())
+        .patch(`/products/${createdProductId}`)
+        .set('Authorization', `Bearer ${staffTokenA}`)
+        .send({ status: 'out_of_stock' })
+        .expect(200);
+
+      expect(outOfStockResponse.body.data).toMatchObject({
+        id: createdProductId,
+        name: 'Staff Updated Product',
+        status: 'out_of_stock',
+      });
+
+      const outOfStockPublicResponse = await request(app.getHttpServer())
+        .get('/products/public')
+        .expect(200);
+      expect(outOfStockPublicResponse.body.data.items).not.toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ id: createdProductId }),
+        ]),
+      );
+
+      const activeResponse = await request(app.getHttpServer())
+        .patch(`/products/${createdProductId}`)
+        .set('Authorization', `Bearer ${staffTokenA}`)
+        .send({ status: 'active' })
+        .expect(200);
+      expect(activeResponse.body.data.status).toBe('active');
+
+      const activePublicResponse = await request(app.getHttpServer())
+        .get('/products/public')
+        .expect(200);
+      expect(activePublicResponse.body.data.items).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ id: createdProductId }),
+        ]),
+      );
+    });
+
+    it('should reject empty, invalid, unauthorized, or cross-store updates', async () => {
       await request(app.getHttpServer())
         .patch(`/products/${createdProductId}`)
         .set('Authorization', `Bearer ${staffTokenA}`)
@@ -463,14 +502,28 @@ describe('Products (Integration)', () => {
         .send({ price: -1 })
         .expect(400);
       await request(app.getHttpServer())
+        .patch(`/products/${createdProductId}`)
+        .set('Authorization', `Bearer ${staffTokenA}`)
+        .send({ status: 'unavailable' })
+        .expect(400);
+      await request(app.getHttpServer())
+        .patch(`/products/${createdProductId}`)
+        .send({ status: 'hidden' })
+        .expect(401);
+      await request(app.getHttpServer())
+        .patch(`/products/${createdProductId}`)
+        .set('Authorization', `Bearer ${customerToken}`)
+        .send({ status: 'hidden' })
+        .expect(403);
+      await request(app.getHttpServer())
         .patch(`/products/${activeProductB}`)
         .set('Authorization', `Bearer ${staffTokenA}`)
-        .send({ name: 'Cross Store Update' })
+        .send({ status: 'hidden' })
         .expect(404);
       await request(app.getHttpServer())
         .patch(`/products/${createdProductId}`)
         .set('Authorization', `Bearer ${adminToken}`)
-        .send({ name: 'Admin Update' })
+        .send({ status: 'hidden' })
         .expect(403);
     });
   });
