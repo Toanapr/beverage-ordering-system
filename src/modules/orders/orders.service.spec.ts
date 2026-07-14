@@ -424,6 +424,78 @@ describe('OrdersService', () => {
     });
   });
 
+  describe('cancelStaffOrder', () => {
+    const staff = { storeId: 'store-1' } as any;
+
+    it.each([OrderStatus.PENDING, OrderStatus.PREPARING])(
+      'should cancel a %s order and save its reason',
+      async (status) => {
+        const order = {
+          id: 'order-1',
+          storeId: 'store-1',
+          status,
+          cancelReason: null,
+        } as any;
+        (orderRepository.findById as jest.Mock).mockResolvedValue(order);
+        (orderRepository.save as jest.Mock).mockImplementation((value) =>
+          Promise.resolve(value),
+        );
+
+        const result = await service.cancelStaffOrder('order-1', staff, {
+          cancelReason: 'Store cannot fulfill this order',
+        });
+
+        expect(result).toEqual(
+          expect.objectContaining({
+            status: OrderStatus.CANCELLED,
+            cancelReason: 'Store cannot fulfill this order',
+          }),
+        );
+        expect(orderRepository.save).toHaveBeenCalledWith(order);
+      },
+    );
+
+    it('should reject staff without an assigned store', async () => {
+      await expect(
+        service.cancelStaffOrder('order-1', { storeId: null } as any, {
+          cancelReason: 'Reason',
+        }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should reject a missing or another-store order', async () => {
+      (orderRepository.findById as jest.Mock).mockResolvedValue(null);
+      await expect(
+        service.cancelStaffOrder('missing', staff, { cancelReason: 'Reason' }),
+      ).rejects.toThrow(NotFoundException);
+
+      (orderRepository.findById as jest.Mock).mockResolvedValue({
+        id: 'order-1',
+        storeId: 'other-store',
+      });
+      await expect(
+        service.cancelStaffOrder('order-1', staff, { cancelReason: 'Reason' }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it.each([OrderStatus.COMPLETED, OrderStatus.CANCELLED])(
+      'should reject cancelling a %s order',
+      async (status) => {
+        (orderRepository.findById as jest.Mock).mockResolvedValue({
+          id: 'order-1',
+          storeId: 'store-1',
+          status,
+        });
+
+        await expect(
+          service.cancelStaffOrder('order-1', staff, {
+            cancelReason: 'Reason',
+          }),
+        ).rejects.toThrow(BadRequestException);
+      },
+    );
+  });
+
   describe('findStaffOrderDetail', () => {
     it('should throw ForbiddenException if staff has no assigned store', async () => {
       await expect(
@@ -543,19 +615,27 @@ describe('OrdersService', () => {
       ).rejects.toThrow(ForbiddenException);
     });
 
-    it('should throw BadRequestException if transition is invalid (e.g. pending -> completed)', async () => {
-      (orderRepository.findById as jest.Mock).mockResolvedValue({
-        id: 'order-1',
-        storeId: 'store-1',
-        status: OrderStatus.PENDING,
-      });
+    it.each([
+      [OrderStatus.PENDING, OrderStatus.COMPLETED],
+      [OrderStatus.PREPARING, OrderStatus.PENDING],
+      [OrderStatus.COMPLETED, OrderStatus.PREPARING],
+      [OrderStatus.CANCELLED, OrderStatus.PENDING],
+    ])(
+      'should reject the invalid transition %s -> %s',
+      async (currentStatus, nextStatus) => {
+        (orderRepository.findById as jest.Mock).mockResolvedValue({
+          id: 'order-1',
+          storeId: 'store-1',
+          status: currentStatus,
+        });
 
-      await expect(
-        service.updateStaffOrderStatus('order-1', staff, {
-          status: OrderStatus.COMPLETED,
-        }),
-      ).rejects.toThrow(BadRequestException);
-    });
+        await expect(
+          service.updateStaffOrderStatus('order-1', staff, {
+            status: nextStatus,
+          }),
+        ).rejects.toThrow(BadRequestException);
+      },
+    );
 
     it('should successfully update status from PENDING to PREPARING', async () => {
       const order = {

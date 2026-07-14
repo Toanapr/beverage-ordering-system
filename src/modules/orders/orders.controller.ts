@@ -21,6 +21,7 @@ import { UserRole } from 'src/common/enums/role.enum';
 import {
   CreateOrderSwagger,
   CancelOrderSwagger,
+  CancelStaffOrderSwagger,
   GetStaffOrdersSwagger,
   GetStaffOrderDetailSwagger,
   GetAdminOrdersSwagger,
@@ -56,6 +57,17 @@ export class OrdersController {
     @Body() dto: CancelOrderDto,
   ) {
     return this.ordersService.cancel(id, user.id, dto);
+  }
+
+  @Patch('staff/:id/cancel')
+  @Roles(UserRole.STAFF)
+  @CancelStaffOrderSwagger()
+  cancelStaffOrder(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() staff: User,
+    @Body() dto: CancelOrderDto,
+  ) {
+    return this.ordersService.cancelStaffOrder(id, staff, dto);
   }
 
   @Get('history')

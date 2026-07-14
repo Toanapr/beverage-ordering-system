@@ -1,5 +1,6 @@
 export * from './create-order.swagger';
 export * from './cancel-order.swagger';
+export * from './cancel-staff-order.swagger';
 export * from './get-customer-order-detail.swagger';
 export * from './get-customer-order-history.swagger';
 export * from './get-staff-orders.swagger';
