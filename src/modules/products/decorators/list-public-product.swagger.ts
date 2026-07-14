@@ -6,12 +6,12 @@ import { ApiPaginatedResponse } from 'src/common/decorators/swagger/api-paginate
 export const ListPublicProductSwagger = () =>
   applyDecorators(
     ApiOperation({
-      summary: 'Danh sách sản phẩm (Công khai)',
+      summary: 'Product List (Public)',
       description:
-        'Khách hàng tìm kiếm, lọc và phân trang sản phẩm. Chỉ hiển thị các sản phẩm active thuộc về các cửa hàng đang mở cửa và không bị khóa.',
+        'Customers search, filter, and paginate products. Only displays active products belonging to open stores that are not locked.',
     }),
     ApiPaginatedResponse(
       ProductResponseDto,
-      'Lấy danh sách sản phẩm thành công',
+      'Product list retrieved successfully',
     ),
   );

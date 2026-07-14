@@ -6,12 +6,12 @@ import { ApiSuccessResponse } from 'src/common/decorators/swagger/api-success-re
 export const GetPublicProductSwagger = () =>
   applyDecorators(
     ApiOperation({
-      summary: 'Chi tiết sản phẩm (Công khai)',
+      summary: 'Product Details (Public)',
       description:
-        'Lấy chi tiết một sản phẩm công khai. Sản phẩm phải có trạng thái active và thuộc về cửa hàng đang mở cửa, không bị khóa.',
+        'Get details of a public product. The product must have an active status, belong to an open store, and not be locked.',
     }),
     ApiSuccessResponse(ProductResponseDto, {
-      description: 'Lấy chi tiết sản phẩm thành công',
+      description: 'Product details retrieved successfully',
     }),
-    ApiNotFoundResponse({ description: 'Không tìm thấy sản phẩm' }),
+    ApiNotFoundResponse({ description: 'Product not found' }),
   );
