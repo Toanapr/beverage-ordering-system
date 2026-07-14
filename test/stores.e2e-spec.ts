@@ -201,13 +201,13 @@ describe('StoresController (Integration)', () => {
       const prefix = `Public Visibility ${Date.now()}`;
       const createStore = (name: string) =>
         request(app.getHttpServer())
-        .post('/stores')
-        .set('Authorization', `Bearer ${adminToken}`)
-        .send({
-          name,
-          phone: '0908888888',
-          address: 'Active Address',
-        });
+          .post('/stores')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .send({
+            name,
+            phone: '0908888888',
+            address: 'Active Address',
+          });
 
       const openStore = await createStore(`${prefix} Open`);
       const closedStore = await createStore(`${prefix} Closed`);
@@ -234,7 +234,9 @@ describe('StoresController (Integration)', () => {
         .expect(200);
 
       const response = await request(app.getHttpServer())
-        .get(`/stores?search=${encodeURIComponent(prefix)}&isOpen=false&isLocked=true`)
+        .get(
+          `/stores?search=${encodeURIComponent(prefix)}&isOpen=false&isLocked=true`,
+        )
         .expect(200);
 
       expectSuccessEnvelope(response.body);
