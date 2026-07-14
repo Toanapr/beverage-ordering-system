@@ -23,6 +23,7 @@ import {
   CancelOrderSwagger,
   CancelStaffOrderSwagger,
   GetStaffOrdersSwagger,
+  GetStaffOrderStatisticsSwagger,
   GetStaffOrderDetailSwagger,
   GetAdminOrdersSwagger,
   GetAdminOrderDetailSwagger,
@@ -34,6 +35,7 @@ import { User } from 'src/modules/users/entities/user.entity';
 import { QueryOrderDto } from './dto/query-order.dto';
 import { QueryAdminOrderDto } from './dto/query-admin-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
+import { QueryStaffOrderStatisticsDto } from './dto/query-staff-order-statistics.dto';
 
 @ApiTags('Orders')
 @Controller('orders')
@@ -84,6 +86,16 @@ export class OrdersController {
   @GetStaffOrdersSwagger()
   findStaffOrders(@CurrentUser() staff: User, @Query() query: QueryOrderDto) {
     return this.ordersService.findStaffOrders(staff, query);
+  }
+
+  @Get('staff/statistics')
+  @Roles(UserRole.STAFF)
+  @GetStaffOrderStatisticsSwagger()
+  findStaffOrderStatistics(
+    @CurrentUser() staff: User,
+    @Query() query: QueryStaffOrderStatisticsDto,
+  ) {
+    return this.ordersService.findStaffOrderStatistics(staff, query);
   }
 
   @Get('staff/:id')

@@ -28,6 +28,8 @@ import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
 import { getOffset, paginate } from 'src/common/utils/pagination.util';
 import { User } from 'src/modules/users/entities/user.entity';
 import { OrderHistoryResponseDto } from './dto/responses/order-history-response.dto';
+import { QueryStaffOrderStatisticsDto } from './dto/query-staff-order-statistics.dto';
+import { StaffOrderStatisticsResponseDto } from './dto/responses/staff-order-statistics-response.dto';
 
 const MAX_ORDER_CODE_RETRY = 5;
 
@@ -166,6 +168,32 @@ export class OrdersService {
     });
 
     return paginate(items, page, limit, totalItems);
+  }
+
+  async findStaffOrderStatistics(
+    staff: User,
+    query: QueryStaffOrderStatisticsDto,
+  ): Promise<StaffOrderStatisticsResponseDto> {
+    if (!staff.storeId) {
+      throw new ForbiddenException('Staff member has no assigned store');
+    }
+
+    const from = query.from
+      ? this.toHoChiMinhDayBoundary(query.from)
+      : undefined;
+    const to = query.to
+      ? this.toHoChiMinhDayBoundary(query.to, true)
+      : undefined;
+
+    if (from && to && from >= to) {
+      throw new BadRequestException('from date must not be after to date');
+    }
+
+    return this.orderRepository.getStaffStatistics({
+      storeId: staff.storeId,
+      from,
+      to,
+    });
   }
 
   async findCustomerOrderHistory(
@@ -329,5 +357,28 @@ export class OrdersService {
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
     };
+  }
+
+  private toHoChiMinhDayBoundary(date: string, nextDay = false): Date {
+    const [year, month, day] = date.split('-').map(Number);
+    const calendarDate = new Date(Date.UTC(year, month - 1, day));
+    if (
+      calendarDate.getUTCFullYear() !== year ||
+      calendarDate.getUTCMonth() !== month - 1 ||
+      calendarDate.getUTCDate() !== day
+    ) {
+      throw new BadRequestException('Invalid calendar date');
+    }
+    if (nextDay) {
+      calendarDate.setUTCDate(calendarDate.getUTCDate() + 1);
+    }
+    return new Date(
+      Date.UTC(
+        calendarDate.getUTCFullYear(),
+        calendarDate.getUTCMonth(),
+        calendarDate.getUTCDate(),
+        -7,
+      ),
+    );
   }
 }

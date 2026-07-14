@@ -3,6 +3,13 @@ import { Order } from '../entities/order.entity';
 
 export const I_ORDER_REPOSITORY = 'I_ORDER_REPOSITORY';
 
+export interface StaffOrderStatistics {
+  totalOrders: number;
+  completedOrders: number;
+  cancelledOrders: number;
+  completedRevenue: number;
+}
+
 export interface IOrderRepository {
   findByOrderCode(orderCode: string): Promise<Order | null>;
   findById(id: string): Promise<Order | null>;
@@ -16,4 +23,9 @@ export interface IOrderRepository {
       status?: OrderStatus;
     };
   }): Promise<[Order[], number]>;
+  getStaffStatistics(options: {
+    storeId: string;
+    from?: Date;
+    to?: Date;
+  }): Promise<StaffOrderStatistics>;
 }
