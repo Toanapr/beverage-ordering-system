@@ -1,0 +1,26 @@
+{
+  "moduleFileExtensions": ["js", "json", "ts"],
+  "rootDir": "..",
+  "testRegex": "(src/.*\\.spec\\.ts$|test/.*\\.e2e-spec\\.ts$)",
+  "testEnvironment": "node",
+  "transform": {
+    "^.+\\.(t|j)s$": "ts-jest"
+  },
+  "moduleNameMapper": {
+    "^src/(.*)$": "<rootDir>/src/$1"
+  },
+  "collectCoverageFrom": [
+    "<rootDir>/src/**/*.(t|j)s",
+    "!<rootDir>/src/**/*.spec.ts",
+    "!<rootDir>/src/main.ts",
+    "!<rootDir>/src/db/data-source.ts",
+    "!<rootDir>/src/db/migrations/**",
+    "!<rootDir>/src/db/seeds/**",
+    "!<rootDir>/src/**/entities/**",
+    "!<rootDir>/src/**/dto/**",
+    "!<rootDir>/src/**/decorators/**",
+    "!<rootDir>/src/**/*.module.ts",
+    "!<rootDir>/src/**/repositories/*-repository.interface.ts"
+  ],
+  "coverageDirectory": "<rootDir>/coverage"
+}
