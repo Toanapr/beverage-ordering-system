@@ -4,3 +4,4 @@ export * from './get-staff-orders.swagger';
 export * from './get-staff-order-detail.swagger';
 export * from './get-admin-orders.swagger';
 export * from './get-admin-order-detail.swagger';
+export * from './update-order-status.swagger';

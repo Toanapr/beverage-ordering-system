@@ -25,10 +25,12 @@ import {
   GetStaffOrderDetailSwagger,
   GetAdminOrdersSwagger,
   GetAdminOrderDetailSwagger,
+  UpdateOrderStatusSwagger,
 } from './decorators';
 import { User } from 'src/modules/users/entities/user.entity';
 import { QueryOrderDto } from './dto/query-order.dto';
 import { QueryAdminOrderDto } from './dto/query-admin-order.dto';
+import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 
 @ApiTags('Orders')
 @Controller('orders')
@@ -81,5 +83,16 @@ export class OrdersController {
   @GetAdminOrderDetailSwagger()
   findAdminOrderDetail(@Param('id', ParseUUIDPipe) id: string) {
     return this.ordersService.findAdminOrderDetail(id);
+  }
+
+  @Patch('staff/:id/status')
+  @Roles(UserRole.STAFF)
+  @UpdateOrderStatusSwagger()
+  updateStaffOrderStatus(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() staff: User,
+    @Body() dto: UpdateOrderStatusDto,
+  ) {
+    return this.ordersService.updateStaffOrderStatus(id, staff, dto);
   }
 }

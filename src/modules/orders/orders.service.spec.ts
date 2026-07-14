@@ -427,4 +427,91 @@ describe('OrdersService', () => {
       expect(result).toEqual(order);
     });
   });
+
+  describe('updateStaffOrderStatus', () => {
+    const staff = { storeId: 'store-1' } as any;
+
+    it('should throw ForbiddenException if staff has no assigned store', async () => {
+      await expect(
+        service.updateStaffOrderStatus('order-1', { storeId: null } as any, {
+          status: OrderStatus.PREPARING,
+        }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should throw NotFoundException if order does not exist', async () => {
+      (orderRepository.findById as jest.Mock).mockResolvedValue(null);
+
+      await expect(
+        service.updateStaffOrderStatus('order-1', staff, {
+          status: OrderStatus.PREPARING,
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw ForbiddenException if order belongs to a different store', async () => {
+      (orderRepository.findById as jest.Mock).mockResolvedValue({
+        id: 'order-1',
+        storeId: 'other-store',
+      });
+
+      await expect(
+        service.updateStaffOrderStatus('order-1', staff, {
+          status: OrderStatus.PREPARING,
+        }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should throw BadRequestException if transition is invalid (e.g. pending -> completed)', async () => {
+      (orderRepository.findById as jest.Mock).mockResolvedValue({
+        id: 'order-1',
+        storeId: 'store-1',
+        status: OrderStatus.PENDING,
+      });
+
+      await expect(
+        service.updateStaffOrderStatus('order-1', staff, {
+          status: OrderStatus.COMPLETED,
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should successfully update status from PENDING to PREPARING', async () => {
+      const order = {
+        id: 'order-1',
+        storeId: 'store-1',
+        status: OrderStatus.PENDING,
+      };
+      (orderRepository.findById as jest.Mock).mockResolvedValue(order);
+      (orderRepository.save as jest.Mock).mockImplementation((o) =>
+        Promise.resolve(o),
+      );
+
+      const result = await service.updateStaffOrderStatus('order-1', staff, {
+        status: OrderStatus.PREPARING,
+      });
+
+      expect(result.status).toBe(OrderStatus.PREPARING);
+      expect(orderRepository.save).toHaveBeenCalledWith(order);
+    });
+
+    it('should successfully update status from PREPARING to COMPLETED', async () => {
+      const order = {
+        id: 'order-1',
+        storeId: 'store-1',
+        status: OrderStatus.PREPARING,
+      };
+      (orderRepository.findById as jest.Mock).mockResolvedValue(order);
+      (orderRepository.save as jest.Mock).mockImplementation((o) =>
+        Promise.resolve(o),
+      );
+
+      const result = await service.updateStaffOrderStatus('order-1', staff, {
+        status: OrderStatus.COMPLETED,
+      });
+
+      expect(result.status).toBe(OrderStatus.COMPLETED);
+      expect(orderRepository.save).toHaveBeenCalledWith(order);
+    });
+  });
 });

@@ -1144,4 +1144,161 @@ describe('Orders (Integration)', () => {
       );
     });
   });
+
+  // ==========================================
+  // 6. PATCH /orders/staff/:id/status (Staff Update Order Status)
+  // ==========================================
+  describe('PATCH /orders/staff/:id/status (Staff Update Order Status)', () => {
+    let orderId: string;
+    let otherStoreOrderId: string;
+    let unassignedStaffToken: string;
+
+    beforeAll(async () => {
+      // 1. Create a pending order for staff's store (storeIdOpen)
+      const res = await request(app.getHttpServer())
+        .post('/orders')
+        .set('Authorization', `Bearer ${customerToken}`)
+        .send({
+          storeId: storeIdOpen,
+          receiverName: 'John State',
+          receiverPhone: '0901111111',
+          deliveryAddress: '123 Open Road',
+          items: [{ productId: productActive, quantity: 1 }],
+        })
+        .expect(201);
+      orderId = res.body.data.id;
+
+      // 2. Create a pending order for other store (storeIdClosed)
+      const otherOrderRes = await dataSource.query(
+        `INSERT INTO orders (order_code, customer_id, store_id, receiver_name, receiver_phone, delivery_address, subtotal, total_amount, payment_method, status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`,
+        [
+          'OTH' + Math.floor(1000000 + Math.random() * 9000000).toString(),
+          res.body.data.customerId,
+          storeIdClosed,
+          'Receiver',
+          '0901234567',
+          'Address',
+          15000,
+          15000,
+          'COD',
+          'pending',
+        ],
+      );
+      otherStoreOrderId = otherOrderRes[0].id;
+
+      // 3. Create unassigned staff
+      const unassignedStaffEmail = `staff-unassigned-status-${Date.now()}@gmail.com`;
+      const regUnassignedStaff = await request(app.getHttpServer())
+        .post('/auth/register')
+        .send({
+          email: unassignedStaffEmail,
+          password,
+          fullName: 'Unassigned Staff',
+        })
+        .expect(201);
+      await dataSource.query(`UPDATE users SET role = 'staff' WHERE id = $1`, [
+        regUnassignedStaff.body.data.id,
+      ]);
+      const loginUnassigned = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: unassignedStaffEmail, password })
+        .expect(200);
+      unassignedStaffToken = loginUnassigned.body.data.accessToken;
+    });
+
+    it('should fail with 401 if no authorization header is provided', async () => {
+      await request(app.getHttpServer())
+        .patch(`/orders/staff/${orderId}/status`)
+        .send({ status: 'preparing' })
+        .expect(401);
+    });
+
+    it('should fail with 403 if role is not STAFF (e.g. CUSTOMER)', async () => {
+      await request(app.getHttpServer())
+        .patch(`/orders/staff/${orderId}/status`)
+        .set('Authorization', `Bearer ${customerToken}`)
+        .send({ status: 'preparing' })
+        .expect(403);
+    });
+
+    it('should fail with 403 if staff has no assigned store', async () => {
+      await request(app.getHttpServer())
+        .patch(`/orders/staff/${orderId}/status`)
+        .set('Authorization', `Bearer ${unassignedStaffToken}`)
+        .send({ status: 'preparing' })
+        .expect(403);
+    });
+
+    it('should fail with 400 if order ID is not a valid UUID', async () => {
+      await request(app.getHttpServer())
+        .patch('/orders/staff/invalid-uuid/status')
+        .set('Authorization', `Bearer ${staffToken}`)
+        .send({ status: 'preparing' })
+        .expect(400);
+    });
+
+    it('should fail with 404 if the order does not exist', async () => {
+      const nonExistentId = '00000000-0000-0000-0000-000000000000';
+      await request(app.getHttpServer())
+        .patch(`/orders/staff/${nonExistentId}/status`)
+        .set('Authorization', `Bearer ${staffToken}`)
+        .send({ status: 'preparing' })
+        .expect(404);
+    });
+
+    it('should fail with 403 if the order belongs to another store', async () => {
+      await request(app.getHttpServer())
+        .patch(`/orders/staff/${otherStoreOrderId}/status`)
+        .set('Authorization', `Bearer ${staffToken}`)
+        .send({ status: 'preparing' })
+        .expect(403);
+    });
+
+    it('should fail with 400 if transition is invalid (e.g. pending -> completed)', async () => {
+      await request(app.getHttpServer())
+        .patch(`/orders/staff/${orderId}/status`)
+        .set('Authorization', `Bearer ${staffToken}`)
+        .send({ status: 'completed' })
+        .expect(400);
+    });
+
+    it('should successfully update status from pending to preparing', async () => {
+      const response = await request(app.getHttpServer())
+        .patch(`/orders/staff/${orderId}/status`)
+        .set('Authorization', `Bearer ${staffToken}`)
+        .send({ status: 'preparing' })
+        .expect(200);
+
+      expectSuccessEnvelope(response.body);
+      expect(response.body.data.status).toBe('preparing');
+    });
+
+    it('should fail with 400 if transition is invalid (e.g. preparing -> pending)', async () => {
+      await request(app.getHttpServer())
+        .patch(`/orders/staff/${orderId}/status`)
+        .set('Authorization', `Bearer ${staffToken}`)
+        .send({ status: 'pending' })
+        .expect(400);
+    });
+
+    it('should successfully update status from preparing to completed', async () => {
+      const response = await request(app.getHttpServer())
+        .patch(`/orders/staff/${orderId}/status`)
+        .set('Authorization', `Bearer ${staffToken}`)
+        .send({ status: 'completed' })
+        .expect(200);
+
+      expectSuccessEnvelope(response.body);
+      expect(response.body.data.status).toBe('completed');
+    });
+
+    it('should fail with 400 if order is already completed', async () => {
+      await request(app.getHttpServer())
+        .patch(`/orders/staff/${orderId}/status`)
+        .set('Authorization', `Bearer ${staffToken}`)
+        .send({ status: 'preparing' })
+        .expect(400);
+    });
+  });
 });

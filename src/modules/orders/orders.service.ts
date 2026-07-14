@@ -16,6 +16,7 @@ import { CreateOrderDto } from './dto/create-order.dto';
 import { CancelOrderDto } from './dto/cancel-order.dto';
 import { QueryOrderDto } from './dto/query-order.dto';
 import { QueryAdminOrderDto } from './dto/query-admin-order.dto';
+import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { Order } from './entities/order.entity';
 import { OrderItemComputed } from './types/order-item-computed';
 import { ProductsService } from '../products/products.service';
@@ -208,5 +209,42 @@ export class OrdersService {
       throw new NotFoundException('Order not found');
     }
     return order;
+  }
+
+  async updateStaffOrderStatus(
+    orderId: string,
+    staff: User,
+    dto: UpdateOrderStatusDto,
+  ): Promise<Order> {
+    if (!staff.storeId) {
+      throw new ForbiddenException('Staff member has no assigned store');
+    }
+    const order = await this.orderRepository.findById(orderId);
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+    if (order.storeId !== staff.storeId) {
+      throw new ForbiddenException(
+        'You do not have permission to manage orders of another store',
+      );
+    }
+
+    const currentStatus = order.status;
+    const newStatus = dto.status;
+
+    const isValidTransition =
+      (currentStatus === OrderStatus.PENDING &&
+        newStatus === OrderStatus.PREPARING) ||
+      (currentStatus === OrderStatus.PREPARING &&
+        newStatus === OrderStatus.COMPLETED);
+
+    if (!isValidTransition) {
+      throw new BadRequestException(
+        `Invalid status transition from ${currentStatus} to ${newStatus}. Only pending -> preparing and preparing -> completed transitions are allowed.`,
+      );
+    }
+
+    order.status = newStatus;
+    return this.orderRepository.save(order);
   }
 }
