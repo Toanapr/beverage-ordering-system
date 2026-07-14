@@ -1020,7 +1020,114 @@ describe('Orders (Integration)', () => {
   });
 
   // ==========================================
-  // 5. PATCH /orders/:id/cancel (Cancel Order)
+  // 6. GET /orders/:id (Customer Order Details)
+  // ==========================================
+  describe('GET /orders/:id (Customer Order Details)', () => {
+    let ownOrderId: string;
+    let otherCustomerOrderId: string;
+    let otherCustomerToken: string;
+
+    beforeAll(async () => {
+      const ownOrder = await request(app.getHttpServer())
+        .post('/orders')
+        .set('Authorization', `Bearer ${customerToken}`)
+        .send({
+          storeId: storeIdOpen,
+          receiverName: 'Customer Detail',
+          receiverPhone: '0901111222',
+          deliveryAddress: '123 Detail Road',
+          items: [{ productId: productActive, quantity: 2 }],
+        })
+        .expect(201);
+      ownOrderId = ownOrder.body.data.id;
+
+      const otherCustomerEmail = `other-detail-${Date.now()}@gmail.com`;
+      await request(app.getHttpServer())
+        .post('/auth/register')
+        .send({
+          email: otherCustomerEmail,
+          password,
+          fullName: 'Other Detail Customer',
+        })
+        .expect(201);
+      const otherCustomerLogin = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: otherCustomerEmail, password })
+        .expect(200);
+      otherCustomerToken = otherCustomerLogin.body.data.accessToken;
+
+      const otherOrder = await request(app.getHttpServer())
+        .post('/orders')
+        .set('Authorization', `Bearer ${otherCustomerToken}`)
+        .send({
+          storeId: storeIdOpen,
+          receiverName: 'Other Customer Detail',
+          receiverPhone: '0901111333',
+          deliveryAddress: '456 Other Road',
+          items: [{ productId: productActive, quantity: 1 }],
+        })
+        .expect(201);
+      otherCustomerOrderId = otherOrder.body.data.id;
+    });
+
+    it('should fail with 401 if no token is provided', async () => {
+      await request(app.getHttpServer())
+        .get(`/orders/${ownOrderId}`)
+        .expect(401);
+    });
+
+    it('should fail with 403 for staff and admin', async () => {
+      await request(app.getHttpServer())
+        .get(`/orders/${ownOrderId}`)
+        .set('Authorization', `Bearer ${staffToken}`)
+        .expect(403);
+      await request(app.getHttpServer())
+        .get(`/orders/${ownOrderId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(403);
+    });
+
+    it('should fail with 400 for an invalid order ID', async () => {
+      await request(app.getHttpServer())
+        .get('/orders/invalid-uuid')
+        .set('Authorization', `Bearer ${customerToken}`)
+        .expect(400);
+    });
+
+    it('should fail with 404 for a missing or another customer order', async () => {
+      await request(app.getHttpServer())
+        .get('/orders/00000000-0000-0000-0000-000000000000')
+        .set('Authorization', `Bearer ${customerToken}`)
+        .expect(404);
+      await request(app.getHttpServer())
+        .get(`/orders/${otherCustomerOrderId}`)
+        .set('Authorization', `Bearer ${customerToken}`)
+        .expect(404);
+    });
+
+    it('should return order details and items for the owning customer', async () => {
+      const response = await request(app.getHttpServer())
+        .get(`/orders/${ownOrderId}`)
+        .set('Authorization', `Bearer ${customerToken}`)
+        .expect(200);
+
+      expectSuccessEnvelope(response.body);
+      expect(response.body.data).toEqual(
+        expect.objectContaining({
+          id: ownOrderId,
+          receiverName: 'Customer Detail',
+          receiverPhone: '0901111222',
+          deliveryAddress: '123 Detail Road',
+        }),
+      );
+      expect(response.body.data.items).toEqual([
+        expect.objectContaining({ productId: productActive, quantity: 2 }),
+      ]);
+    });
+  });
+
+  // ==========================================
+  // 7. PATCH /orders/:id/cancel (Cancel Order)
   // ==========================================
   describe('PATCH /orders/:id/cancel (Cancel Order)', () => {
     let orderId: string;

@@ -25,6 +25,7 @@ import {
   GetStaffOrderDetailSwagger,
   GetAdminOrdersSwagger,
   GetAdminOrderDetailSwagger,
+  GetCustomerOrderDetailSwagger,
   GetCustomerOrderHistorySwagger,
   UpdateOrderStatusSwagger,
 } from './decorators';
@@ -94,6 +95,16 @@ export class OrdersController {
   @GetAdminOrderDetailSwagger()
   findAdminOrderDetail(@Param('id', ParseUUIDPipe) id: string) {
     return this.ordersService.findAdminOrderDetail(id);
+  }
+
+  @Get(':id')
+  @Roles(UserRole.CUSTOMER)
+  @GetCustomerOrderDetailSwagger()
+  findCustomerOrderDetail(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() customer: User,
+  ) {
+    return this.ordersService.findCustomerOrderDetail(id, customer.id);
   }
 
   @Patch('staff/:id/status')
