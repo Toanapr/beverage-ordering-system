@@ -1,10 +1,12 @@
 import {
   Body,
   Controller,
+  Get,
   Param,
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
@@ -16,17 +18,25 @@ import { CancelOrderDto } from './dto/cancel-order.dto';
 import { RolesGuard } from 'src/common/guards/roles.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { UserRole } from 'src/common/enums/role.enum';
-import { CreateOrderSwagger, CancelOrderSwagger } from './decorators';
+import {
+  CreateOrderSwagger,
+  CancelOrderSwagger,
+  GetStaffOrdersSwagger,
+  GetStaffOrderDetailSwagger,
+  GetAdminOrdersSwagger,
+  GetAdminOrderDetailSwagger,
+} from './decorators';
 import { User } from 'src/modules/users/entities/user.entity';
+import { QueryOrderDto } from './dto/query-order.dto';
+import { QueryAdminOrderDto } from './dto/query-admin-order.dto';
 
 @ApiTags('Orders')
 @Controller('orders')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
   @Post()
-  @UseGuards(RolesGuard)
   @Roles(UserRole.CUSTOMER)
   @CreateOrderSwagger()
   create(@CurrentUser() user: User, @Body() dto: CreateOrderDto) {
@@ -34,7 +44,6 @@ export class OrdersController {
   }
 
   @Patch(':id/cancel')
-  @UseGuards(RolesGuard)
   @Roles(UserRole.CUSTOMER)
   @CancelOrderSwagger()
   cancel(
@@ -43,5 +52,34 @@ export class OrdersController {
     @Body() dto: CancelOrderDto,
   ) {
     return this.ordersService.cancel(id, user.id, dto);
+  }
+
+  @Get('staff')
+  @GetStaffOrdersSwagger()
+  findStaffOrders(@CurrentUser() staff: User, @Query() query: QueryOrderDto) {
+    return this.ordersService.findStaffOrders(staff, query);
+  }
+
+  @Get('staff/:id')
+  @GetStaffOrderDetailSwagger()
+  findStaffOrderDetail(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() staff: User,
+  ) {
+    return this.ordersService.findStaffOrderDetail(id, staff);
+  }
+
+  @Get('admin')
+  @Roles(UserRole.ADMIN)
+  @GetAdminOrdersSwagger()
+  findAdminOrders(@Query() query: QueryAdminOrderDto) {
+    return this.ordersService.findAdminOrders(query);
+  }
+
+  @Get('admin/:id')
+  @Roles(UserRole.ADMIN)
+  @GetAdminOrderDetailSwagger()
+  findAdminOrderDetail(@Param('id', ParseUUIDPipe) id: string) {
+    return this.ordersService.findAdminOrderDetail(id);
   }
 }

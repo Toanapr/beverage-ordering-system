@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Inject,
   Injectable,
   NotFoundException,
@@ -13,6 +14,8 @@ import { DataSource } from 'typeorm';
 import { generateOrderCode } from 'src/common/utils/order-code.util';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { CancelOrderDto } from './dto/cancel-order.dto';
+import { QueryOrderDto } from './dto/query-order.dto';
+import { QueryAdminOrderDto } from './dto/query-admin-order.dto';
 import { Order } from './entities/order.entity';
 import { OrderItemComputed } from './types/order-item-computed';
 import { ProductsService } from '../products/products.service';
@@ -20,6 +23,9 @@ import { ProductStatus } from 'src/common/enums/product-status.enum';
 import { PaymentMethod } from 'src/common/enums/payment-method.enum';
 import { OrderStatus } from 'src/common/enums/order-status.enum';
 import { OrderItem } from './entities/order-item.entity';
+import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
+import { getOffset, paginate } from 'src/common/utils/pagination.util';
+import { User } from 'src/modules/users/entities/user.entity';
 
 const MAX_ORDER_CODE_RETRY = 5;
 
@@ -135,5 +141,72 @@ export class OrdersService {
     order.status = OrderStatus.CANCELLED;
     order.cancelReason = dto.cancelReason;
     return this.orderRepository.save(order);
+  }
+
+  async findStaffOrders(
+    staff: User,
+    query: QueryOrderDto,
+  ): Promise<PaginatedResponseDto<Order>> {
+    if (!staff.storeId) {
+      throw new ForbiddenException('Staff member has no assigned store');
+    }
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 10;
+    const skip = getOffset(page, limit);
+
+    const [items, totalItems] = await this.orderRepository.findAndCount({
+      skip,
+      take: limit,
+      filter: {
+        storeId: staff.storeId,
+        status: query.status,
+      },
+    });
+
+    return paginate(items, page, limit, totalItems);
+  }
+
+  async findStaffOrderDetail(orderId: string, staff: User): Promise<Order> {
+    if (!staff.storeId) {
+      throw new ForbiddenException('Staff member has no assigned store');
+    }
+    const order = await this.orderRepository.findById(orderId);
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+    if (order.storeId !== staff.storeId) {
+      throw new ForbiddenException(
+        'You do not have permission to access orders of another store',
+      );
+    }
+    return order;
+  }
+
+  async findAdminOrders(
+    query: QueryAdminOrderDto,
+  ): Promise<PaginatedResponseDto<Order>> {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 10;
+    const skip = getOffset(page, limit);
+
+    const [items, totalItems] = await this.orderRepository.findAndCount({
+      skip,
+      take: limit,
+      filter: {
+        storeId: query.storeId,
+        customerId: query.customerId,
+        status: query.status,
+      },
+    });
+
+    return paginate(items, page, limit, totalItems);
+  }
+
+  async findAdminOrderDetail(orderId: string): Promise<Order> {
+    const order = await this.orderRepository.findById(orderId);
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+    return order;
   }
 }
