@@ -388,6 +388,42 @@ describe('OrdersService', () => {
     });
   });
 
+  describe('findCustomerOrderDetail', () => {
+    it('should return an order with items for its owning customer', async () => {
+      const order = {
+        id: 'order-1',
+        customerId: 'customer-1',
+        items: [{ id: 'item-1', productId: 'product-1', quantity: 1 }],
+      } as any;
+      (orderRepository.findById as jest.Mock).mockResolvedValue(order);
+
+      await expect(
+        service.findCustomerOrderDetail('order-1', 'customer-1'),
+      ).resolves.toEqual(order);
+      expect(orderRepository.findById).toHaveBeenCalledWith('order-1');
+    });
+
+    it('should throw NotFoundException if the order does not exist', async () => {
+      (orderRepository.findById as jest.Mock).mockResolvedValue(null);
+
+      await expect(
+        service.findCustomerOrderDetail('missing', 'customer-1'),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw NotFoundException if the order belongs to another customer', async () => {
+      (orderRepository.findById as jest.Mock).mockResolvedValue({
+        id: 'order-1',
+        customerId: 'other-customer',
+        items: [],
+      });
+
+      await expect(
+        service.findCustomerOrderDetail('order-1', 'customer-1'),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
   describe('findStaffOrderDetail', () => {
     it('should throw ForbiddenException if staff has no assigned store', async () => {
       await expect(

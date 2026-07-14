@@ -193,6 +193,17 @@ export class OrdersService {
     );
   }
 
+  async findCustomerOrderDetail(
+    orderId: string,
+    customerId: string,
+  ): Promise<Order> {
+    const order = await this.orderRepository.findById(orderId);
+    if (!order || order.customerId !== customerId) {
+      throw new NotFoundException('Order not found');
+    }
+    return order;
+  }
+
   async findStaffOrderDetail(orderId: string, staff: User): Promise<Order> {
     if (!staff.storeId) {
       throw new ForbiddenException('Staff member has no assigned store');
