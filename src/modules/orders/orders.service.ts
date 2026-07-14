@@ -15,6 +15,7 @@ import { generateOrderCode } from 'src/common/utils/order-code.util';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { CancelOrderDto } from './dto/cancel-order.dto';
 import { QueryOrderDto } from './dto/query-order.dto';
+import { QueryAdminOrderDto } from './dto/query-admin-order.dto';
 import { Order } from './entities/order.entity';
 import { OrderItemComputed } from './types/order-item-computed';
 import { ProductsService } from '../products/products.service';
@@ -177,6 +178,34 @@ export class OrdersService {
       throw new ForbiddenException(
         'You do not have permission to access orders of another store',
       );
+    }
+    return order;
+  }
+
+  async findAdminOrders(
+    query: QueryAdminOrderDto,
+  ): Promise<PaginatedResponseDto<Order>> {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 10;
+    const skip = getOffset(page, limit);
+
+    const [items, totalItems] = await this.orderRepository.findAndCount({
+      skip,
+      take: limit,
+      filter: {
+        storeId: query.storeId,
+        customerId: query.customerId,
+        status: query.status,
+      },
+    });
+
+    return paginate(items, page, limit, totalItems);
+  }
+
+  async findAdminOrderDetail(orderId: string): Promise<Order> {
+    const order = await this.orderRepository.findById(orderId);
+    if (!order) {
+      throw new NotFoundException('Order not found');
     }
     return order;
   }

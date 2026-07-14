@@ -18,15 +18,23 @@ import { CancelOrderDto } from './dto/cancel-order.dto';
 import { RolesGuard } from 'src/common/guards/roles.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { UserRole } from 'src/common/enums/role.enum';
-import { CreateOrderSwagger, CancelOrderSwagger, GetStaffOrdersSwagger, GetStaffOrderDetailSwagger } from './decorators';
+import {
+  CreateOrderSwagger,
+  CancelOrderSwagger,
+  GetStaffOrdersSwagger,
+  GetStaffOrderDetailSwagger,
+  GetAdminOrdersSwagger,
+  GetAdminOrderDetailSwagger,
+} from './decorators';
 import { User } from 'src/modules/users/entities/user.entity';
 import { QueryOrderDto } from './dto/query-order.dto';
+import { QueryAdminOrderDto } from './dto/query-admin-order.dto';
 
 @ApiTags('Orders')
 @Controller('orders')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class OrdersController {
-  constructor(private readonly ordersService: OrdersService) { }
+  constructor(private readonly ordersService: OrdersService) {}
 
   @Post()
   @Roles(UserRole.CUSTOMER)
@@ -48,10 +56,7 @@ export class OrdersController {
 
   @Get('staff')
   @GetStaffOrdersSwagger()
-  findStaffOrders(
-    @CurrentUser() staff: User,
-    @Query() query: QueryOrderDto,
-  ) {
+  findStaffOrders(@CurrentUser() staff: User, @Query() query: QueryOrderDto) {
     return this.ordersService.findStaffOrders(staff, query);
   }
 
@@ -62,5 +67,19 @@ export class OrdersController {
     @CurrentUser() staff: User,
   ) {
     return this.ordersService.findStaffOrderDetail(id, staff);
+  }
+
+  @Get('admin')
+  @Roles(UserRole.ADMIN)
+  @GetAdminOrdersSwagger()
+  findAdminOrders(@Query() query: QueryAdminOrderDto) {
+    return this.ordersService.findAdminOrders(query);
+  }
+
+  @Get('admin/:id')
+  @Roles(UserRole.ADMIN)
+  @GetAdminOrderDetailSwagger()
+  findAdminOrderDetail(@Param('id', ParseUUIDPipe) id: string) {
+    return this.ordersService.findAdminOrderDetail(id);
   }
 }

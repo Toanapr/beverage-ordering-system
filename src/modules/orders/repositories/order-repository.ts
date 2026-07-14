@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Order } from '../entities/order.entity';
-import { Repository } from 'typeorm';
+import { FindOptionsOrder, FindOptionsWhere, Repository } from 'typeorm';
 import { IOrderRepository } from './order-repository.interface';
 import { OrderStatus } from 'src/common/enums/order-status.enum';
 
@@ -13,7 +13,9 @@ export class OrderRepository implements IOrderRepository {
   ) {}
 
   async findByOrderCode(orderCode: string): Promise<Order | null> {
-    return this.typeOrmRepository.findOne({ where: { orderCode } });
+    return this.typeOrmRepository.findOne({
+      where: { orderCode },
+    });
   }
 
   async findById(id: string): Promise<Order | null> {
@@ -36,21 +38,29 @@ export class OrderRepository implements IOrderRepository {
       status?: OrderStatus;
     };
   }): Promise<[Order[], number]> {
-    const where: any = {};
-    if (options.filter?.customerId) {
+    const where: FindOptionsWhere<Order> = {};
+
+    if (options.filter.customerId) {
       where.customerId = options.filter.customerId;
     }
-    if (options.filter?.storeId) {
+
+    if (options.filter.storeId) {
       where.storeId = options.filter.storeId;
     }
-    if (options.filter?.status) {
+
+    if (options.filter.status) {
       where.status = options.filter.status;
     }
+
+    const order: FindOptionsOrder<Order> = {
+      createdAt: 'DESC',
+    };
+
     return this.typeOrmRepository.findAndCount({
       skip: options.skip,
       take: options.take,
       where,
-      order: { createdAt: 'DESC' } as any,
+      order,
     });
   }
 }

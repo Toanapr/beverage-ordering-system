@@ -572,9 +572,9 @@ describe('Orders (Integration)', () => {
   });
 
   // ==========================================
-  // 2. GET /staff/orders (List Staff Orders)
+  // 2. GET /orders/staff (List Staff Orders)
   // ==========================================
-  describe('GET /staff/orders (List Staff Orders)', () => {
+  describe('GET /orders/staff (List Staff Orders)', () => {
     let unassignedStaffToken: string;
 
     beforeAll(async () => {
@@ -582,12 +582,15 @@ describe('Orders (Integration)', () => {
       const unassignedStaffEmail = `staff-unassigned-${Date.now()}@gmail.com`;
       const regUnassignedStaff = await request(app.getHttpServer())
         .post('/auth/register')
-        .send({ email: unassignedStaffEmail, password, fullName: 'Unassigned Staff' })
+        .send({
+          email: unassignedStaffEmail,
+          password,
+          fullName: 'Unassigned Staff',
+        })
         .expect(201);
-      await dataSource.query(
-        `UPDATE users SET role = 'staff' WHERE id = $1`,
-        [regUnassignedStaff.body.data.id],
-      );
+      await dataSource.query(`UPDATE users SET role = 'staff' WHERE id = $1`, [
+        regUnassignedStaff.body.data.id,
+      ]);
       const loginUnassigned = await request(app.getHttpServer())
         .post('/auth/login')
         .send({ email: unassignedStaffEmail, password })
@@ -596,21 +599,19 @@ describe('Orders (Integration)', () => {
     });
 
     it('should fail with 401 if no token is provided', async () => {
-      await request(app.getHttpServer())
-        .get('/staff/orders')
-        .expect(401);
+      await request(app.getHttpServer()).get('/orders/staff').expect(401);
     });
 
     it('should fail with 403 if role is not STAFF (e.g. CUSTOMER)', async () => {
       await request(app.getHttpServer())
-        .get('/staff/orders')
+        .get('/orders/staff')
         .set('Authorization', `Bearer ${customerToken}`)
         .expect(403);
     });
 
     it('should fail with 403 if staff has no assigned store', async () => {
       const response = await request(app.getHttpServer())
-        .get('/staff/orders')
+        .get('/orders/staff')
         .set('Authorization', `Bearer ${unassignedStaffToken}`)
         .expect(403);
 
@@ -620,7 +621,7 @@ describe('Orders (Integration)', () => {
 
     it('should successfully list orders belonging to the staff store', async () => {
       const response = await request(app.getHttpServer())
-        .get('/staff/orders')
+        .get('/orders/staff')
         .set('Authorization', `Bearer ${staffToken}`)
         .expect(200);
 
@@ -636,7 +637,7 @@ describe('Orders (Integration)', () => {
 
     it('should filter orders by status and return pagination meta', async () => {
       const response = await request(app.getHttpServer())
-        .get('/staff/orders?status=pending&page=1&limit=5')
+        .get('/orders/staff?status=pending&page=1&limit=5')
         .set('Authorization', `Bearer ${staffToken}`)
         .expect(200);
 
@@ -651,9 +652,9 @@ describe('Orders (Integration)', () => {
   });
 
   // ==========================================
-  // 3. GET /staff/orders/:id (Staff Order Details)
+  // 3. GET /orders/staff/:id (Staff Order Details)
   // ==========================================
-  describe('GET /staff/orders/:id (Staff Order Details)', () => {
+  describe('GET /orders/staff/:id (Staff Order Details)', () => {
     let orderId: string;
     let otherOrderId: string;
     let unassignedStaffToken: string;
@@ -696,12 +697,15 @@ describe('Orders (Integration)', () => {
       const unassignedStaffEmail = `staff-unassigned-det-${Date.now()}@gmail.com`;
       const regUnassignedStaff = await request(app.getHttpServer())
         .post('/auth/register')
-        .send({ email: unassignedStaffEmail, password, fullName: 'Unassigned Staff' })
+        .send({
+          email: unassignedStaffEmail,
+          password,
+          fullName: 'Unassigned Staff',
+        })
         .expect(201);
-      await dataSource.query(
-        `UPDATE users SET role = 'staff' WHERE id = $1`,
-        [regUnassignedStaff.body.data.id],
-      );
+      await dataSource.query(`UPDATE users SET role = 'staff' WHERE id = $1`, [
+        regUnassignedStaff.body.data.id,
+      ]);
       const loginUnassigned = await request(app.getHttpServer())
         .post('/auth/login')
         .send({ email: unassignedStaffEmail, password })
@@ -711,27 +715,27 @@ describe('Orders (Integration)', () => {
 
     it('should fail with 401 if no token is provided', async () => {
       await request(app.getHttpServer())
-        .get(`/staff/orders/${orderId}`)
+        .get(`/orders/staff/${orderId}`)
         .expect(401);
     });
 
     it('should fail with 403 if role is not STAFF', async () => {
       await request(app.getHttpServer())
-        .get(`/staff/orders/${orderId}`)
+        .get(`/orders/staff/${orderId}`)
         .set('Authorization', `Bearer ${customerToken}`)
         .expect(403);
     });
 
     it('should fail with 403 if staff has no assigned store', async () => {
       await request(app.getHttpServer())
-        .get(`/staff/orders/${orderId}`)
+        .get(`/orders/staff/${orderId}`)
         .set('Authorization', `Bearer ${unassignedStaffToken}`)
         .expect(403);
     });
 
     it('should fail with 400 if order ID is not a valid UUID', async () => {
       await request(app.getHttpServer())
-        .get('/staff/orders/invalid-uuid')
+        .get('/orders/staff/invalid-uuid')
         .set('Authorization', `Bearer ${staffToken}`)
         .expect(400);
     });
@@ -739,24 +743,26 @@ describe('Orders (Integration)', () => {
     it('should fail with 404 if the order does not exist', async () => {
       const nonExistentId = '00000000-0000-0000-0000-000000000000';
       await request(app.getHttpServer())
-        .get(`/staff/orders/${nonExistentId}`)
+        .get(`/orders/staff/${nonExistentId}`)
         .set('Authorization', `Bearer ${staffToken}`)
         .expect(404);
     });
 
     it('should fail with 403 if the order belongs to another store', async () => {
       const response = await request(app.getHttpServer())
-        .get(`/staff/orders/${otherOrderId}`)
+        .get(`/orders/staff/${otherOrderId}`)
         .set('Authorization', `Bearer ${staffToken}`)
         .expect(403);
 
       expect(response.body.success).toBe(false);
-      expect(response.body.message).toBe('You do not have permission to access orders of another store');
+      expect(response.body.message).toBe(
+        'You do not have permission to access orders of another store',
+      );
     });
 
     it('should return order details including items if order belongs to staff store', async () => {
       const response = await request(app.getHttpServer())
-        .get(`/staff/orders/${orderId}`)
+        .get(`/orders/staff/${orderId}`)
         .set('Authorization', `Bearer ${staffToken}`)
         .expect(200);
 
@@ -771,10 +777,144 @@ describe('Orders (Integration)', () => {
   });
 
   // ==========================================
-  // 4. PATCH /orders/:id/status (Update Order Status) - Future tests
+  // 4. GET /orders/admin (List Admin Orders)
   // ==========================================
-  describe('PATCH /orders/:id/status (Update Order Status)', () => {
-    // TODO: Add tests for updating order workflow status (pending -> processing -> completed)
+  describe('GET /orders/admin (List Admin Orders)', () => {
+    it('should fail with 401 if no token is provided', async () => {
+      await request(app.getHttpServer()).get('/orders/admin').expect(401);
+    });
+
+    it('should fail with 403 if role is not ADMIN (e.g. CUSTOMER)', async () => {
+      await request(app.getHttpServer())
+        .get('/orders/admin')
+        .set('Authorization', `Bearer ${customerToken}`)
+        .expect(403);
+    });
+
+    it('should fail with 403 if role is STAFF', async () => {
+      await request(app.getHttpServer())
+        .get('/orders/admin')
+        .set('Authorization', `Bearer ${staffToken}`)
+        .expect(403);
+    });
+
+    it('should successfully list all orders in the system for admin', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/orders/admin')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+
+      expectSuccessEnvelope(response.body);
+      expect(response.body.data).toHaveProperty('items');
+      expect(response.body.data).toHaveProperty('meta');
+      expect(Array.isArray(response.body.data.items)).toBe(true);
+    });
+
+    it('should filter all orders by storeId and return pagination meta', async () => {
+      const response = await request(app.getHttpServer())
+        .get(`/orders/admin?storeId=${storeIdOpen}&page=1&limit=5`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+
+      expectSuccessEnvelope(response.body);
+      const { items, meta } = response.body.data;
+      expect(meta.page).toBe(1);
+      expect(meta.limit).toBe(5);
+      for (const order of items) {
+        expect(order.storeId).toBe(storeIdOpen);
+      }
+    });
+  });
+
+  // ==========================================
+  // 5. GET /orders/admin/:id (Admin Order Details)
+  // ==========================================
+  describe('GET /orders/admin/:id (Admin Order Details)', () => {
+    let orderOpenId: string;
+    let orderClosedId: string;
+
+    beforeAll(async () => {
+      // 1. Create order in storeIdOpen
+      const resOpen = await request(app.getHttpServer())
+        .post('/orders')
+        .set('Authorization', `Bearer ${customerToken}`)
+        .send({
+          storeId: storeIdOpen,
+          receiverName: 'John OpenDetail',
+          receiverPhone: '0901111111',
+          deliveryAddress: '123 Open Road',
+          items: [{ productId: productActive, quantity: 1 }],
+        })
+        .expect(201);
+      orderOpenId = resOpen.body.data.id;
+
+      // 2. Create order in storeIdClosed via direct query
+      const resClosed = await dataSource.query(
+        `INSERT INTO orders (order_code, customer_id, store_id, receiver_name, receiver_phone, delivery_address, subtotal, total_amount, payment_method, status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`,
+        [
+          'OTH' + Math.floor(1000000 + Math.random() * 9000000).toString(),
+          resOpen.body.data.customerId,
+          storeIdClosed,
+          'Receiver',
+          '0901234567',
+          'Address',
+          15000,
+          15000,
+          'COD',
+          'pending',
+        ],
+      );
+      orderClosedId = resClosed[0].id;
+    });
+
+    it('should fail with 401 if no token is provided', async () => {
+      await request(app.getHttpServer())
+        .get(`/orders/admin/${orderOpenId}`)
+        .expect(401);
+    });
+
+    it('should fail with 403 if role is not ADMIN', async () => {
+      await request(app.getHttpServer())
+        .get(`/orders/admin/${orderOpenId}`)
+        .set('Authorization', `Bearer ${customerToken}`)
+        .expect(403);
+    });
+
+    it('should fail with 400 if order ID is not a valid UUID', async () => {
+      await request(app.getHttpServer())
+        .get('/orders/admin/invalid-uuid')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(400);
+    });
+
+    it('should fail with 404 if the order does not exist', async () => {
+      const nonExistentId = '00000000-0000-0000-0000-000000000000';
+      await request(app.getHttpServer())
+        .get(`/orders/admin/${nonExistentId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(404);
+    });
+
+    it('should successfully retrieve order details for an order in any store', async () => {
+      // 1. Order in open store
+      const responseOpen = await request(app.getHttpServer())
+        .get(`/orders/admin/${orderOpenId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+      expectSuccessEnvelope(responseOpen.body);
+      expect(responseOpen.body.data.id).toBe(orderOpenId);
+      expect(responseOpen.body.data.storeId).toBe(storeIdOpen);
+
+      // 2. Order in closed store
+      const responseClosed = await request(app.getHttpServer())
+        .get(`/orders/admin/${orderClosedId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+      expectSuccessEnvelope(responseClosed.body);
+      expect(responseClosed.body.data.id).toBe(orderClosedId);
+      expect(responseClosed.body.data.storeId).toBe(storeIdClosed);
+    });
   });
 
   // ==========================================

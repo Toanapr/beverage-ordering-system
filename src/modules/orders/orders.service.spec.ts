@@ -1,4 +1,8 @@
-import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { IOrderRepository } from './repositories/order-repository.interface';
 import { StoresService } from '../stores/stores.service';
@@ -373,6 +377,53 @@ describe('OrdersService', () => {
         storeId: 'store-1',
       } as any);
 
+      expect(result).toEqual(order);
+    });
+  });
+
+  describe('findAdminOrders', () => {
+    it('should call repository findAndCount with correct filters and pagination options', async () => {
+      (orderRepository.findAndCount as jest.Mock).mockResolvedValue([[], 0]);
+
+      const query = {
+        page: 3,
+        limit: 10,
+        status: OrderStatus.COMPLETED,
+        storeId: 'store-123',
+        customerId: 'customer-456',
+      } as any;
+
+      const result = await service.findAdminOrders(query);
+
+      expect(orderRepository.findAndCount).toHaveBeenCalledWith({
+        skip: 20,
+        take: 10,
+        filter: {
+          storeId: 'store-123',
+          customerId: 'customer-456',
+          status: OrderStatus.COMPLETED,
+        },
+      });
+      expect(result.items).toEqual([]);
+      expect(result.meta.page).toBe(3);
+      expect(result.meta.limit).toBe(10);
+    });
+  });
+
+  describe('findAdminOrderDetail', () => {
+    it('should throw NotFoundException if order does not exist', async () => {
+      (orderRepository.findById as jest.Mock).mockResolvedValue(null);
+
+      await expect(service.findAdminOrderDetail('order-1')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('should return order details if order exists', async () => {
+      const order = { id: 'order-1', items: [] };
+      (orderRepository.findById as jest.Mock).mockResolvedValue(order);
+
+      const result = await service.findAdminOrderDetail('order-1');
       expect(result).toEqual(order);
     });
   });
