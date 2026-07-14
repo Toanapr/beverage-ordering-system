@@ -1355,10 +1355,186 @@ describe('Orders (Integration)', () => {
   });
 
   // ==========================================
-  // 6. PATCH /orders/staff/:id/status (Staff Update Order Status)
+  // 8. PATCH /orders/staff/:id/cancel (Staff Cancel Order)
+  // ==========================================
+  describe('PATCH /orders/staff/:id/cancel (Staff Cancel Order)', () => {
+    let pendingOrderId: string;
+    let preparingOrderId: string;
+    let completedOrderId: string;
+    let cancelledOrderId: string;
+    let otherStoreOrderId: string;
+    let unassignedStaffToken: string;
+
+    const createOrderForStaffStore = async (receiverName: string) => {
+      const response = await request(app.getHttpServer())
+        .post('/orders')
+        .set('Authorization', `Bearer ${customerToken}`)
+        .send({
+          storeId: storeIdOpen,
+          receiverName,
+          receiverPhone: '0901111111',
+          deliveryAddress: '123 Staff Cancel Road',
+          items: [{ productId: productActive, quantity: 1 }],
+        })
+        .expect(201);
+      return response.body.data.id;
+    };
+
+    beforeAll(async () => {
+      pendingOrderId = await createOrderForStaffStore('Pending Cancel');
+      preparingOrderId = await createOrderForStaffStore('Preparing Cancel');
+      completedOrderId = await createOrderForStaffStore('Completed Cancel');
+      cancelledOrderId = await createOrderForStaffStore('Cancelled Cancel');
+
+      await dataSource.query(
+        `UPDATE orders SET status = 'preparing' WHERE id = $1`,
+        [preparingOrderId],
+      );
+      await dataSource.query(
+        `UPDATE orders SET status = 'completed' WHERE id = $1`,
+        [completedOrderId],
+      );
+      await dataSource.query(
+        `UPDATE orders SET status = 'cancelled', cancel_reason = 'Already cancelled' WHERE id = $1`,
+        [cancelledOrderId],
+      );
+
+      const otherStoreOrder = await dataSource.query(
+        `INSERT INTO orders (order_code, customer_id, store_id, receiver_name, receiver_phone, delivery_address, subtotal, total_amount, payment_method, status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`,
+        [
+          'OTH' + Math.floor(1000000 + Math.random() * 9000000).toString(),
+          customerId,
+          storeIdClosed,
+          'Other Store Customer',
+          '0901234567',
+          'Other Store Address',
+          15000,
+          15000,
+          'COD',
+          'pending',
+        ],
+      );
+      otherStoreOrderId = otherStoreOrder[0].id;
+
+      const unassignedStaffEmail = `staff-unassigned-cancel-${Date.now()}@gmail.com`;
+      const registerUnassignedStaff = await request(app.getHttpServer())
+        .post('/auth/register')
+        .send({
+          email: unassignedStaffEmail,
+          password,
+          fullName: 'Unassigned Cancel Staff',
+        })
+        .expect(201);
+      await dataSource.query(`UPDATE users SET role = 'staff' WHERE id = $1`, [
+        registerUnassignedStaff.body.data.id,
+      ]);
+      const loginUnassignedStaff = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: unassignedStaffEmail, password })
+        .expect(200);
+      unassignedStaffToken = loginUnassignedStaff.body.data.accessToken;
+    });
+
+    it('should reject missing authentication and non-staff roles', async () => {
+      await request(app.getHttpServer())
+        .patch(`/orders/staff/${pendingOrderId}/cancel`)
+        .send({ cancelReason: 'Store issue' })
+        .expect(401);
+      await request(app.getHttpServer())
+        .patch(`/orders/staff/${pendingOrderId}/cancel`)
+        .set('Authorization', `Bearer ${customerToken}`)
+        .send({ cancelReason: 'Store issue' })
+        .expect(403);
+      await request(app.getHttpServer())
+        .patch(`/orders/staff/${pendingOrderId}/cancel`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ cancelReason: 'Store issue' })
+        .expect(403);
+    });
+
+    it('should reject an unassigned staff member, invalid ID, and missing reason', async () => {
+      await request(app.getHttpServer())
+        .patch(`/orders/staff/${pendingOrderId}/cancel`)
+        .set('Authorization', `Bearer ${unassignedStaffToken}`)
+        .send({ cancelReason: 'Store issue' })
+        .expect(403);
+      await request(app.getHttpServer())
+        .patch('/orders/staff/invalid-uuid/cancel')
+        .set('Authorization', `Bearer ${staffToken}`)
+        .send({ cancelReason: 'Store issue' })
+        .expect(400);
+      await request(app.getHttpServer())
+        .patch(`/orders/staff/${pendingOrderId}/cancel`)
+        .set('Authorization', `Bearer ${staffToken}`)
+        .send({})
+        .expect(400);
+      await request(app.getHttpServer())
+        .patch(`/orders/staff/${pendingOrderId}/cancel`)
+        .set('Authorization', `Bearer ${staffToken}`)
+        .send({ cancelReason: '' })
+        .expect(400);
+    });
+
+    it('should reject missing and another-store orders', async () => {
+      await request(app.getHttpServer())
+        .patch('/orders/staff/00000000-0000-0000-0000-000000000000/cancel')
+        .set('Authorization', `Bearer ${staffToken}`)
+        .send({ cancelReason: 'Store issue' })
+        .expect(404);
+      await request(app.getHttpServer())
+        .patch(`/orders/staff/${otherStoreOrderId}/cancel`)
+        .set('Authorization', `Bearer ${staffToken}`)
+        .send({ cancelReason: 'Store issue' })
+        .expect(403);
+    });
+
+    it('should cancel pending and preparing orders with a reason', async () => {
+      const pendingResponse = await request(app.getHttpServer())
+        .patch(`/orders/staff/${pendingOrderId}/cancel`)
+        .set('Authorization', `Bearer ${staffToken}`)
+        .send({ cancelReason: 'Ingredient unavailable' })
+        .expect(200);
+      expect(pendingResponse.body.data).toEqual(
+        expect.objectContaining({
+          status: 'cancelled',
+          cancelReason: 'Ingredient unavailable',
+        }),
+      );
+
+      const preparingResponse = await request(app.getHttpServer())
+        .patch(`/orders/staff/${preparingOrderId}/cancel`)
+        .set('Authorization', `Bearer ${staffToken}`)
+        .send({ cancelReason: 'Equipment failure' })
+        .expect(200);
+      expect(preparingResponse.body.data).toEqual(
+        expect.objectContaining({
+          status: 'cancelled',
+          cancelReason: 'Equipment failure',
+        }),
+      );
+    });
+
+    it('should reject completed and cancelled orders', async () => {
+      await request(app.getHttpServer())
+        .patch(`/orders/staff/${completedOrderId}/cancel`)
+        .set('Authorization', `Bearer ${staffToken}`)
+        .send({ cancelReason: 'Too late' })
+        .expect(400);
+      await request(app.getHttpServer())
+        .patch(`/orders/staff/${cancelledOrderId}/cancel`)
+        .set('Authorization', `Bearer ${staffToken}`)
+        .send({ cancelReason: 'Already cancelled' })
+        .expect(400);
+    });
+  });
+
+  // ==========================================
+  // 9. PATCH /orders/staff/:id/status (Staff Update Order Status)
   // ==========================================
   describe('PATCH /orders/staff/:id/status (Staff Update Order Status)', () => {
     let orderId: string;
+    let cancelledOrderId: string;
     let otherStoreOrderId: string;
     let unassignedStaffToken: string;
 
@@ -1376,6 +1552,23 @@ describe('Orders (Integration)', () => {
         })
         .expect(201);
       orderId = res.body.data.id;
+
+      const cancelledOrder = await request(app.getHttpServer())
+        .post('/orders')
+        .set('Authorization', `Bearer ${customerToken}`)
+        .send({
+          storeId: storeIdOpen,
+          receiverName: 'Cancelled State',
+          receiverPhone: '0901111111',
+          deliveryAddress: '123 Open Road',
+          items: [{ productId: productActive, quantity: 1 }],
+        })
+        .expect(201);
+      cancelledOrderId = cancelledOrder.body.data.id;
+      await dataSource.query(
+        `UPDATE orders SET status = 'cancelled', cancel_reason = 'Cancelled' WHERE id = $1`,
+        [cancelledOrderId],
+      );
 
       // 2. Create a pending order for other store (storeIdClosed)
       const otherOrderRes = await dataSource.query(
@@ -1507,6 +1700,14 @@ describe('Orders (Integration)', () => {
         .patch(`/orders/staff/${orderId}/status`)
         .set('Authorization', `Bearer ${staffToken}`)
         .send({ status: 'preparing' })
+        .expect(400);
+    });
+
+    it('should fail with 400 for cancelled -> pending', async () => {
+      await request(app.getHttpServer())
+        .patch(`/orders/staff/${cancelledOrderId}/status`)
+        .set('Authorization', `Bearer ${staffToken}`)
+        .send({ status: 'pending' })
         .expect(400);
     });
   });

@@ -204,6 +204,37 @@ export class OrdersService {
     return order;
   }
 
+  async cancelStaffOrder(
+    orderId: string,
+    staff: User,
+    dto: CancelOrderDto,
+  ): Promise<Order> {
+    if (!staff.storeId) {
+      throw new ForbiddenException('Staff member has no assigned store');
+    }
+    const order = await this.orderRepository.findById(orderId);
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+    if (order.storeId !== staff.storeId) {
+      throw new ForbiddenException(
+        'You do not have permission to manage orders of another store',
+      );
+    }
+    if (
+      order.status !== OrderStatus.PENDING &&
+      order.status !== OrderStatus.PREPARING
+    ) {
+      throw new BadRequestException(
+        'Only pending or preparing orders can be cancelled',
+      );
+    }
+
+    order.status = OrderStatus.CANCELLED;
+    order.cancelReason = dto.cancelReason;
+    return this.orderRepository.save(order);
+  }
+
   async findStaffOrderDetail(orderId: string, staff: User): Promise<Order> {
     if (!staff.storeId) {
       throw new ForbiddenException('Staff member has no assigned store');
