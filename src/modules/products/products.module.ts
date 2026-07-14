@@ -7,9 +7,10 @@ import { ProductsService } from './products.service';
 import { StoreProductOwnershipGuard } from './guards/store-product-ownership.guard';
 import { I_PRODUCT_REPOSITORY } from './repositories/product-repository.interface';
 import { ProductRepository } from './repositories/product.repository';
+import { Category } from '../categories/entities/category.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Product, User])],
+  imports: [TypeOrmModule.forFeature([Product, User, Category])],
   controllers: [ProductsController],
   providers: [
     ProductsService,
