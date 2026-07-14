@@ -5,6 +5,7 @@ import { OrderItem } from './entities/order-item.entity';
 import { Product } from 'src/modules/products/entities/product.entity';
 import { OrdersService } from './orders.service';
 import { OrdersController } from './orders.controller';
+import { StaffOrdersController } from './staff-orders.controller';
 import { I_ORDER_REPOSITORY } from './repositories/order-repository.interface';
 import { StoresModule } from 'src/modules/stores/stores.module';
 import { ProductsModule } from '../products/products.module';
@@ -16,7 +17,7 @@ import { OrderRepository } from './repositories/order-repository';
     StoresModule,
     ProductsModule,
   ],
-  controllers: [OrdersController],
+  controllers: [OrdersController, StaffOrdersController],
   providers: [
     OrdersService,
     { provide: I_ORDER_REPOSITORY, useClass: OrderRepository },

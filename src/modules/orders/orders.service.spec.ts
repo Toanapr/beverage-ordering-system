@@ -1,4 +1,4 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { IOrderRepository } from './repositories/order-repository.interface';
 import { StoresService } from '../stores/stores.service';
@@ -58,6 +58,7 @@ describe('OrdersService', () => {
     jest.clearAllMocks();
 
     orderRepository = {
+      findAndCount: jest.fn(),
       findById: jest.fn(),
       findByOrderCode: jest.fn().mockResolvedValue(null),
       save: jest.fn((order) => Promise.resolve(order)),
@@ -307,6 +308,72 @@ describe('OrdersService', () => {
           cancelReason: 'Changed mind',
         }),
       );
+    });
+  });
+
+  describe('findStaffOrders', () => {
+    it('should throw ForbiddenException if staff has no assigned store', async () => {
+      await expect(
+        service.findStaffOrders({ storeId: null } as any, {} as any),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should call repository findAndCount with correct parameters and filter by storeId and status', async () => {
+      const mockStaff = { storeId: 'store-1' } as any;
+      (orderRepository.findAndCount as jest.Mock).mockResolvedValue([[], 0]);
+
+      const query = { page: 2, limit: 5, status: OrderStatus.COMPLETED } as any;
+      const result = await service.findStaffOrders(mockStaff, query);
+
+      expect(orderRepository.findAndCount).toHaveBeenCalledWith({
+        skip: 5,
+        take: 5,
+        filter: {
+          storeId: 'store-1',
+          status: OrderStatus.COMPLETED,
+        },
+      });
+      expect(result.items).toEqual([]);
+      expect(result.meta.page).toBe(2);
+      expect(result.meta.limit).toBe(5);
+    });
+  });
+
+  describe('findStaffOrderDetail', () => {
+    it('should throw ForbiddenException if staff has no assigned store', async () => {
+      await expect(
+        service.findStaffOrderDetail('order-1', { storeId: null } as any),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should throw NotFoundException if order does not exist', async () => {
+      (orderRepository.findById as jest.Mock).mockResolvedValue(null);
+
+      await expect(
+        service.findStaffOrderDetail('order-1', { storeId: 'store-1' } as any),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw ForbiddenException if order belongs to a different store', async () => {
+      (orderRepository.findById as jest.Mock).mockResolvedValue({
+        id: 'order-1',
+        storeId: 'other-store',
+      });
+
+      await expect(
+        service.findStaffOrderDetail('order-1', { storeId: 'store-1' } as any),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should return order details if order belongs to staff store', async () => {
+      const order = { id: 'order-1', storeId: 'store-1', items: [] };
+      (orderRepository.findById as jest.Mock).mockResolvedValue(order);
+
+      const result = await service.findStaffOrderDetail('order-1', {
+        storeId: 'store-1',
+      } as any);
+
+      expect(result).toEqual(order);
     });
   });
 });
