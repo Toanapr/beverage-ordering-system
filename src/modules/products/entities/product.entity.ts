@@ -5,12 +5,15 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 
+@Index('idx_products_store_status', ['storeId', 'status'])
+@Index('idx_products_category', ['categoryId'])
 @Entity('products')
 export class Product {
   @PrimaryGeneratedColumn('uuid')
@@ -34,6 +37,9 @@ export class Product {
   @JoinColumn({ name: 'category_id' })
   category!: Category;
 
+  // TypeORM cannot describe PostgreSQL's gin_trgm_ops operator class. The
+  // migration owns this index while the decorator keeps the entity documented.
+  @Index('idx_products_name', { synchronize: false })
   @Column({ type: 'varchar', length: 100 })
   name!: string;
 
