@@ -8,6 +8,7 @@ import {
   IsString,
   IsUUID,
   MaxLength,
+  Matches,
   Min,
 } from 'class-validator';
 import { ProductStatus } from 'src/common/enums/product-status.enum';
@@ -33,6 +34,22 @@ export class CreateProductDto {
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
   price!: number;
+
+  @ApiPropertyOptional({
+    example: '/uploads/products/550e8400-e29b-41d4-a716-446655440000.jpg',
+    description: 'Relative URL returned by POST /uploads/images',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  @Matches(
+    /^\/uploads\/products\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|png|webp)$/,
+    {
+      message:
+        'imageUrl must be a product image URL returned by the upload endpoint',
+    },
+  )
+  imageUrl?: string;
 
   @ApiPropertyOptional({ enum: ProductStatus, default: ProductStatus.ACTIVE })
   @IsOptional()

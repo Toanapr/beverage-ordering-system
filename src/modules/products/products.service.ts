@@ -45,6 +45,7 @@ export class ProductsService {
       name: dto.name,
       description: dto.description ?? null,
       price: dto.price,
+      imageUrl: dto.imageUrl ?? null,
       status: dto.status ?? ProductStatus.ACTIVE,
     });
   }

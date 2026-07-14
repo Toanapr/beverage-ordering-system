@@ -125,9 +125,28 @@ describe('ProductsService', () => {
         name: 'Matcha Milk Tea',
         description: null,
         price: 35000,
+        imageUrl: null,
         status: ProductStatus.ACTIVE,
       });
       expect(result).toEqual(mockProduct);
+    });
+
+    it('should persist the uploaded image URL when one is provided', async () => {
+      const imageUrl =
+        '/uploads/products/550e8400-e29b-41d4-a716-446655440000.jpg';
+      categoryRepository.findOne.mockResolvedValue({ id: 'category-1' });
+      repository.create.mockResolvedValue({ ...mockProduct, imageUrl });
+
+      await service.create('store-1', {
+        categoryId: 'category-1',
+        name: 'Matcha Milk Tea',
+        price: 35000,
+        imageUrl,
+      });
+
+      expect(repository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ imageUrl }),
+      );
     });
 
     it('should reject staff without an assigned store', async () => {
@@ -191,6 +210,17 @@ describe('ProductsService', () => {
         categoryId: mockProduct.categoryId,
         status: ProductStatus.OUT_OF_STOCK,
       });
+    });
+
+    it('should update the product image URL', async () => {
+      const imageUrl =
+        '/uploads/products/550e8400-e29b-41d4-a716-446655440000.png';
+      repository.findByIdAndStoreId.mockResolvedValue(mockProduct);
+      repository.update.mockResolvedValue({ ...mockProduct, imageUrl });
+
+      await service.update('store-1', 'product-1', { imageUrl });
+
+      expect(repository.update).toHaveBeenCalledWith('product-1', { imageUrl });
     });
 
     it('should reject an empty update payload', async () => {
