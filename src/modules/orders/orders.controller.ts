@@ -25,6 +25,7 @@ import {
   GetStaffOrderDetailSwagger,
   GetAdminOrdersSwagger,
   GetAdminOrderDetailSwagger,
+  GetCustomerOrderHistorySwagger,
   UpdateOrderStatusSwagger,
 } from './decorators';
 import { User } from 'src/modules/users/entities/user.entity';
@@ -54,6 +55,16 @@ export class OrdersController {
     @Body() dto: CancelOrderDto,
   ) {
     return this.ordersService.cancel(id, user.id, dto);
+  }
+
+  @Get('history')
+  @Roles(UserRole.CUSTOMER)
+  @GetCustomerOrderHistorySwagger()
+  findCustomerOrderHistory(
+    @CurrentUser() customer: User,
+    @Query() query: QueryOrderDto,
+  ) {
+    return this.ordersService.findCustomerOrderHistory(customer.id, query);
   }
 
   @Get('staff')

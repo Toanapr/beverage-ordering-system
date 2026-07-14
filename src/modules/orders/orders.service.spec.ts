@@ -343,6 +343,51 @@ describe('OrdersService', () => {
     });
   });
 
+  describe('findCustomerOrderHistory', () => {
+    it('should paginate and filter orders by the authenticated customer and status', async () => {
+      const createdAt = new Date('2026-07-14T00:00:00.000Z');
+      const order = {
+        id: 'order-1',
+        orderCode: 'ORD001',
+        storeId: 'store-1',
+        subtotal: 100,
+        totalAmount: 100,
+        paymentMethod: PaymentMethod.COD,
+        status: OrderStatus.COMPLETED,
+        cancelReason: null,
+        createdAt,
+        updatedAt: createdAt,
+        customerId: 'customer-1',
+      } as any;
+      (orderRepository.findAndCount as jest.Mock).mockResolvedValue([
+        [order],
+        1,
+      ]);
+
+      const result = await service.findCustomerOrderHistory('customer-1', {
+        page: 2,
+        limit: 5,
+        status: OrderStatus.COMPLETED,
+      });
+
+      expect(orderRepository.findAndCount).toHaveBeenCalledWith({
+        skip: 5,
+        take: 5,
+        filter: {
+          customerId: 'customer-1',
+          status: OrderStatus.COMPLETED,
+        },
+      });
+      expect(result.items).toEqual([
+        expect.objectContaining({ id: 'order-1', orderCode: 'ORD001' }),
+      ]);
+      expect(result.items[0]).not.toHaveProperty('customerId');
+      expect(result.meta).toEqual(
+        expect.objectContaining({ page: 2, limit: 5, totalItems: 1 }),
+      );
+    });
+  });
+
   describe('findStaffOrderDetail', () => {
     it('should throw ForbiddenException if staff has no assigned store', async () => {
       await expect(

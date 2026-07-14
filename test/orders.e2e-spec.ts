@@ -13,6 +13,7 @@ describe('Orders (Integration)', () => {
   let dataSource: DataSource;
 
   let customerToken: string;
+  let customerId: string;
   let staffToken: string;
   let adminToken: string;
 
@@ -43,10 +44,11 @@ describe('Orders (Integration)', () => {
 
     // 1. Create and Login Customer
     const customerEmail = `cust-order-${Date.now()}@gmail.com`;
-    await request(app.getHttpServer())
+    const registerCustomer = await request(app.getHttpServer())
       .post('/auth/register')
       .send({ email: customerEmail, password, fullName: 'Customer User' })
       .expect(201);
+    customerId = registerCustomer.body.data.id;
 
     const loginCust = await request(app.getHttpServer())
       .post('/auth/login')
@@ -572,7 +574,107 @@ describe('Orders (Integration)', () => {
   });
 
   // ==========================================
-  // 2. GET /orders/staff (List Staff Orders)
+  // 2. GET /orders/history (Customer Order History)
+  // ==========================================
+  describe('GET /orders/history (Customer Order History)', () => {
+    let otherCustomerOrderId: string;
+
+    beforeAll(async () => {
+      await dataSource.query(
+        `UPDATE orders SET status = 'completed' WHERE customer_id = $1`,
+        [customerId],
+      );
+
+      const otherCustomerEmail = `other-history-${Date.now()}@gmail.com`;
+      const registerOtherCustomer = await request(app.getHttpServer())
+        .post('/auth/register')
+        .send({
+          email: otherCustomerEmail,
+          password,
+          fullName: 'Other Customer',
+        })
+        .expect(201);
+
+      const insertedOrder = await dataSource.query(
+        `INSERT INTO orders (order_code, customer_id, store_id, receiver_name, receiver_phone, delivery_address, subtotal, total_amount, payment_method, status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+         RETURNING id`,
+        [
+          `OTH${Date.now().toString().slice(-7)}`,
+          registerOtherCustomer.body.data.id,
+          storeIdOpen,
+          'Other Customer',
+          '0900000000',
+          'Other Address',
+          35000,
+          35000,
+          'COD',
+          'pending',
+        ],
+      );
+      otherCustomerOrderId = insertedOrder[0].id;
+    });
+
+    it('should fail with 401 if no token is provided', async () => {
+      await request(app.getHttpServer()).get('/orders/history').expect(401);
+    });
+
+    it('should fail with 403 for staff and admin', async () => {
+      await request(app.getHttpServer())
+        .get('/orders/history')
+        .set('Authorization', `Bearer ${staffToken}`)
+        .expect(403);
+      await request(app.getHttpServer())
+        .get('/orders/history')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(403);
+    });
+
+    it('should return paginated summaries belonging only to the authenticated customer', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/orders/history?page=1&limit=1')
+        .set('Authorization', `Bearer ${customerToken}`)
+        .expect(200);
+
+      expectSuccessEnvelope(response.body);
+      expect(response.body.data.meta).toEqual(
+        expect.objectContaining({ page: 1, limit: 1 }),
+      );
+      expect(response.body.data.items).toHaveLength(1);
+      expect(response.body.data.items[0]).not.toHaveProperty('receiverName');
+      expect(response.body.data.items[0]).not.toHaveProperty('receiverPhone');
+      expect(response.body.data.items[0]).not.toHaveProperty('deliveryAddress');
+      expect(response.body.data.items[0]).not.toHaveProperty('items');
+
+      const allOrdersResponse = await request(app.getHttpServer())
+        .get('/orders/history?limit=100')
+        .set('Authorization', `Bearer ${customerToken}`)
+        .expect(200);
+      expect(
+        allOrdersResponse.body.data.items.map((order: any) => order.id),
+      ).not.toContain(otherCustomerOrderId);
+    });
+
+    it('should filter the authenticated customer history by status', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/orders/history?status=completed')
+        .set('Authorization', `Bearer ${customerToken}`)
+        .expect(200);
+
+      expect(response.body.data.items.length).toBeGreaterThan(0);
+      for (const order of response.body.data.items) {
+        expect(order.status).toBe('completed');
+      }
+
+      await request(app.getHttpServer())
+        .get('/orders/history?status=invalid')
+        .set('Authorization', `Bearer ${customerToken}`)
+        .expect(400);
+    });
+  });
+
+  // ==========================================
+  // 3. GET /orders/staff (List Staff Orders)
   // ==========================================
   describe('GET /orders/staff (List Staff Orders)', () => {
     let unassignedStaffToken: string;

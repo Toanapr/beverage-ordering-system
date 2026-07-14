@@ -27,6 +27,7 @@ import { OrderItem } from './entities/order-item.entity';
 import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
 import { getOffset, paginate } from 'src/common/utils/pagination.util';
 import { User } from 'src/modules/users/entities/user.entity';
+import { OrderHistoryResponseDto } from './dto/responses/order-history-response.dto';
 
 const MAX_ORDER_CODE_RETRY = 5;
 
@@ -167,6 +168,31 @@ export class OrdersService {
     return paginate(items, page, limit, totalItems);
   }
 
+  async findCustomerOrderHistory(
+    customerId: string,
+    query: QueryOrderDto,
+  ): Promise<PaginatedResponseDto<OrderHistoryResponseDto>> {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 10;
+    const skip = getOffset(page, limit);
+
+    const [items, totalItems] = await this.orderRepository.findAndCount({
+      skip,
+      take: limit,
+      filter: {
+        customerId,
+        status: query.status,
+      },
+    });
+
+    return paginate(
+      items.map((order) => this.toOrderHistoryResponse(order)),
+      page,
+      limit,
+      totalItems,
+    );
+  }
+
   async findStaffOrderDetail(orderId: string, staff: User): Promise<Order> {
     if (!staff.storeId) {
       throw new ForbiddenException('Staff member has no assigned store');
@@ -246,5 +272,20 @@ export class OrdersService {
 
     order.status = newStatus;
     return this.orderRepository.save(order);
+  }
+
+  private toOrderHistoryResponse(order: Order): OrderHistoryResponseDto {
+    return {
+      id: order.id,
+      orderCode: order.orderCode,
+      storeId: order.storeId,
+      subtotal: order.subtotal,
+      totalAmount: order.totalAmount,
+      paymentMethod: order.paymentMethod,
+      status: order.status,
+      cancelReason: order.cancelReason,
+      createdAt: order.createdAt,
+      updatedAt: order.updatedAt,
+    };
   }
 }
