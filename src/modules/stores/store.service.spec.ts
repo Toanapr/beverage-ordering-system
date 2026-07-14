@@ -87,18 +87,19 @@ describe('StoresService', () => {
   });
 
   describe('findPublicList', () => {
-    it('should enforce isLocked = false even if the query passes isLocked = true', async () => {
+    it('should enforce open and unlocked visibility regardless of query filters', async () => {
       repository.findAndCount.mockResolvedValue([[mockStore], 1]);
 
       const result = await service.findPublicList({
         page: 1,
         limit: 10,
+        isOpen: false,
         isLocked: true,
       });
 
       expect(repository.findAndCount).toHaveBeenCalledWith(
         expect.objectContaining({
-          filter: expect.objectContaining({ isLocked: false }),
+          filter: expect.objectContaining({ isOpen: true, isLocked: false }),
         }),
       );
       expect(result.meta).toEqual({
@@ -132,6 +133,14 @@ describe('StoresService', () => {
       );
     });
 
+    it('should throw NotFoundException if the store is closed', async () => {
+      repository.findById.mockResolvedValue({ ...mockStore, isOpen: false });
+
+      await expect(service.findPublicOneOrThrow('store-1')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
     it('should throw NotFoundException if the store does not exist', async () => {
       repository.findById.mockResolvedValue(null);
 
@@ -140,7 +149,7 @@ describe('StoresService', () => {
       );
     });
 
-    it('should return the store if it is not locked', async () => {
+    it('should return the store if it is open and unlocked', async () => {
       repository.findById.mockResolvedValue(mockStore);
 
       const result = await service.findPublicOneOrThrow('store-1');

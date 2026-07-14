@@ -8,7 +8,7 @@ export const ListStoreSwagger = () =>
     ApiOperation({
       summary: 'Store list (public)',
       description:
-        'Supports search (by name), filter (isOpen), and sort. Locked stores (isLocked=true) never appear in the results, even if isLocked=true is passed.',
+        'Supports search (by name) and sort. Only open, unlocked stores appear; isOpen and isLocked query values cannot expose closed or locked stores.',
     }),
     ApiPaginatedResponse(StoreResponseDto, 'Stores retrieved successfully'),
   );

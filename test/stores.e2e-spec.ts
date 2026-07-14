@@ -197,45 +197,55 @@ describe('StoresController (Integration)', () => {
   });
 
   describe('GET /stores (List Stores - Public)', () => {
-    it('should return a paginated list of public stores (isLocked: false)', async () => {
-      // Seed active store (needs admin token)
-      await request(app.getHttpServer())
-        .post('/stores')
-        .set('Authorization', `Bearer ${adminToken}`)
-        .send({
-          name: `Active E2E Store ${Date.now()}`,
-          phone: '0908888888',
-          address: 'Active Address',
-        });
+    it('should return only open and unlocked stores regardless of requested filters', async () => {
+      const prefix = `Public Visibility ${Date.now()}`;
+      const createStore = (name: string) =>
+        request(app.getHttpServer())
+          .post('/stores')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .send({
+            name,
+            phone: '0908888888',
+            address: 'Active Address',
+          });
 
-      // Seed locked store (needs admin token)
-      const lockTarget = await request(app.getHttpServer())
-        .post('/stores')
-        .set('Authorization', `Bearer ${adminToken}`)
-        .send({
-          name: `Locked E2E Store ${Date.now()}`,
-          phone: '0909999999',
-          address: 'Locked Address',
-        });
-      const lockId = lockTarget.body.data.id;
-      // Lock it (needs admin token)
+      const openStore = await createStore(`${prefix} Open`);
+      const closedStore = await createStore(`${prefix} Closed`);
+      const lockedStore = await createStore(`${prefix} Locked`);
+      const closedLockedStore = await createStore(`${prefix} Closed Locked`);
+
       await request(app.getHttpServer())
-        .patch(`/stores/${lockId}/lock`)
+        .patch(`/stores/${closedStore.body.data.id}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ isOpen: false })
+        .expect(200);
+      await request(app.getHttpServer())
+        .patch(`/stores/${lockedStore.body.data.id}/lock`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+      await request(app.getHttpServer())
+        .patch(`/stores/${closedLockedStore.body.data.id}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ isOpen: false })
+        .expect(200);
+      await request(app.getHttpServer())
+        .patch(`/stores/${closedLockedStore.body.data.id}/lock`)
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
 
-      // Fetch public list (no token required)
       const response = await request(app.getHttpServer())
-        .get('/stores')
+        .get(
+          `/stores?search=${encodeURIComponent(prefix)}&isOpen=false&isLocked=true`,
+        )
         .expect(200);
 
       expectSuccessEnvelope(response.body);
       const { items } = response.body.data;
       expect(Array.isArray(items)).toBe(true);
 
-      // Locked store must NOT be present
-      const lockedStore = items.find((s: any) => s.id === lockId);
-      expect(lockedStore).toBeUndefined();
+      expect(items.map((store: any) => store.id)).toEqual([
+        openStore.body.data.id,
+      ]);
     });
   });
 
@@ -278,6 +288,30 @@ describe('StoresController (Integration)', () => {
         .expect(200);
 
       // Attempt to get details publicly (should return 404)
+      const response = await request(app.getHttpServer())
+        .get(`/stores/${seedId}`)
+        .expect(404);
+
+      expect(response.body.message).toBe('Store not found');
+    });
+
+    it('should fail (404 Not Found) if the store is closed', async () => {
+      const seedResponse = await request(app.getHttpServer())
+        .post('/stores')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          name: `Will Be Closed Store ${Date.now()}`,
+          phone: '0901238888',
+          address: 'Address Y',
+        });
+      const seedId = seedResponse.body.data.id;
+
+      await request(app.getHttpServer())
+        .patch(`/stores/${seedId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ isOpen: false })
+        .expect(200);
+
       const response = await request(app.getHttpServer())
         .get(`/stores/${seedId}`)
         .expect(404);
