@@ -2,7 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Order } from '../entities/order.entity';
 import { FindOptionsOrder, FindOptionsWhere, Repository } from 'typeorm';
-import { IOrderRepository } from './order-repository.interface';
+import {
+  IOrderRepository,
+  StaffOrderStatistics,
+} from './order-repository.interface';
 import { OrderStatus } from 'src/common/enums/order-status.enum';
 
 @Injectable()
@@ -62,5 +65,46 @@ export class OrderRepository implements IOrderRepository {
       where,
       order,
     });
+  }
+
+  async getStaffStatistics(options: {
+    storeId: string;
+    from?: Date;
+    to?: Date;
+  }): Promise<StaffOrderStatistics> {
+    const qb = this.typeOrmRepository.createQueryBuilder('order');
+    qb.select('COUNT(order.id)', 'totalOrders')
+      .addSelect(
+        'COUNT(order.id) FILTER (WHERE order.status = :completedStatus)',
+        'completedOrders',
+      )
+      .addSelect(
+        'COUNT(order.id) FILTER (WHERE order.status = :cancelledStatus)',
+        'cancelledOrders',
+      )
+      .addSelect(
+        'COALESCE(SUM(order.totalAmount) FILTER (WHERE order.status = :completedStatus), 0)',
+        'completedRevenue',
+      )
+      .where('order.storeId = :storeId', { storeId: options.storeId })
+      .setParameters({
+        completedStatus: OrderStatus.COMPLETED,
+        cancelledStatus: OrderStatus.CANCELLED,
+      });
+
+    if (options.from) {
+      qb.andWhere('order.createdAt >= :from', { from: options.from });
+    }
+    if (options.to) {
+      qb.andWhere('order.createdAt < :to', { to: options.to });
+    }
+
+    const raw = await qb.getRawOne<StaffOrderStatistics>();
+    return {
+      totalOrders: Number(raw?.totalOrders ?? 0),
+      completedOrders: Number(raw?.completedOrders ?? 0),
+      cancelledOrders: Number(raw?.cancelledOrders ?? 0),
+      completedRevenue: Number(raw?.completedRevenue ?? 0),
+    };
   }
 }

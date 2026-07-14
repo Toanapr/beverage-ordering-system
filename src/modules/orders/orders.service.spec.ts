@@ -63,6 +63,7 @@ describe('OrdersService', () => {
 
     orderRepository = {
       findAndCount: jest.fn(),
+      getStaffStatistics: jest.fn(),
       findById: jest.fn(),
       findByOrderCode: jest.fn().mockResolvedValue(null),
       save: jest.fn((order) => Promise.resolve(order)),
@@ -340,6 +341,63 @@ describe('OrdersService', () => {
       expect(result.items).toEqual([]);
       expect(result.meta.page).toBe(2);
       expect(result.meta.limit).toBe(5);
+    });
+  });
+
+  describe('findStaffOrderStatistics', () => {
+    it('should request all-time statistics for the assigned store', async () => {
+      (orderRepository.getStaffStatistics as jest.Mock).mockResolvedValue({
+        totalOrders: 4,
+        completedOrders: 2,
+        cancelledOrders: 1,
+        completedRevenue: 150000,
+      });
+
+      await expect(
+        service.findStaffOrderStatistics({ storeId: 'store-1' } as any, {}),
+      ).resolves.toEqual({
+        totalOrders: 4,
+        completedOrders: 2,
+        cancelledOrders: 1,
+        completedRevenue: 150000,
+      });
+      expect(orderRepository.getStaffStatistics).toHaveBeenCalledWith({
+        storeId: 'store-1',
+        from: undefined,
+        to: undefined,
+      });
+    });
+
+    it('should normalize date boundaries to Asia/Ho_Chi_Minh', async () => {
+      (orderRepository.getStaffStatistics as jest.Mock).mockResolvedValue({});
+
+      await service.findStaffOrderStatistics({ storeId: 'store-1' } as any, {
+        from: '2026-07-01',
+        to: '2026-07-31',
+      });
+
+      expect(orderRepository.getStaffStatistics).toHaveBeenCalledWith({
+        storeId: 'store-1',
+        from: new Date('2026-06-30T17:00:00.000Z'),
+        to: new Date('2026-07-31T17:00:00.000Z'),
+      });
+    });
+
+    it('should reject an unassigned staff member and invalid date ranges', async () => {
+      await expect(
+        service.findStaffOrderStatistics({ storeId: null } as any, {}),
+      ).rejects.toThrow(ForbiddenException);
+      await expect(
+        service.findStaffOrderStatistics({ storeId: 'store-1' } as any, {
+          from: '2026-08-01',
+          to: '2026-07-31',
+        }),
+      ).rejects.toThrow(BadRequestException);
+      await expect(
+        service.findStaffOrderStatistics({ storeId: 'store-1' } as any, {
+          from: '2026-02-30',
+        }),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 

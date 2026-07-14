@@ -4,6 +4,7 @@ export * from './cancel-staff-order.swagger';
 export * from './get-customer-order-detail.swagger';
 export * from './get-customer-order-history.swagger';
 export * from './get-staff-orders.swagger';
+export * from './get-staff-order-statistics.swagger';
 export * from './get-staff-order-detail.swagger';
 export * from './get-admin-orders.swagger';
 export * from './get-admin-order-detail.swagger';
