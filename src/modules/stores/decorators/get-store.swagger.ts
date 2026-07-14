@@ -10,6 +10,6 @@ export const GetStoreSwagger = () =>
       description: 'Store details retrieved successfully',
     }),
     ApiNotFoundResponse({
-      description: 'Store not found (does not exist or is locked)',
+      description: 'Store not found (does not exist, is closed, or is locked)',
     }),
   );

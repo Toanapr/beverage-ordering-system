@@ -4,7 +4,10 @@ import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
 import { Type } from 'class-transformer';
 
 export class QueryStoreDto extends PaginationQueryDto {
-  @ApiPropertyOptional({ description: 'Filter by whether the store is open' })
+  @ApiPropertyOptional({
+    description:
+      'Filter by whether the store is open. Public store APIs always return only open stores.',
+  })
   @IsOptional()
   @Type(() => Boolean)
   @IsBoolean()
@@ -12,7 +15,7 @@ export class QueryStoreDto extends PaginationQueryDto {
 
   @ApiPropertyOptional({
     description:
-      'Filter by locked status. NOTE: Public APIs (GET /stores, GET /stores/:id) always force isLocked=false regardless of the passed value.',
+      'Filter by locked status. Public store APIs always return only unlocked stores.',
   })
   @IsOptional()
   @Type(() => Boolean)

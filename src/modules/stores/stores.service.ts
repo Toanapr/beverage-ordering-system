@@ -72,7 +72,7 @@ export class StoresService {
       sortOrder: (query.sortOrder as SortOrder) ?? SortOrder.DESC,
       filter: {
         search: query.search,
-        isOpen: query.isOpen,
+        isOpen: true,
         isLocked: false,
       },
     });
@@ -98,7 +98,7 @@ export class StoresService {
 
   async findPublicOneOrThrow(id: string): Promise<Store> {
     const store = await this.findOneOrThrow(id);
-    if (store.isLocked) {
+    if (store.isLocked || !store.isOpen) {
       throw new NotFoundException('Store not found');
     }
     return store;
