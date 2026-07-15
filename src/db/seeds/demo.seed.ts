@@ -26,6 +26,8 @@ const IDS = {
     soldOut: '30000000-0000-4000-8000-000000000004',
     cola: '30000000-0000-4000-8000-000000000005',
     sparklingWater: '30000000-0000-4000-8000-000000000006',
+    vietnameseIcedCoffee: '30000000-0000-4000-8000-000000000007',
+    peachTea: '30000000-0000-4000-8000-000000000008',
   },
   orders: {
     pending: '40000000-0000-4000-8000-000000000001',
@@ -122,20 +124,23 @@ async function seedCategoriesAndProducts(
 
   await manager.query(
     `INSERT INTO "products"
-      ("id", "store_id", "category_id", "name", "description", "price", "status")
+      ("id", "store_id", "category_id", "name", "description", "price", "image_url", "status")
      VALUES
-       ($1, $7, $9, 'Espresso Demo', 'Classic double espresso', 35000, 'active'),
-       ($2, $7, $10, 'Brown Sugar Milk Tea Demo', 'Milk tea with brown sugar pearls', 45000, 'active'),
-       ($3, $7, $10, 'Seasonal Milk Tea Demo', 'A hidden seasonal menu item', 50000, 'hidden'),
-       ($4, $7, $9, 'Cold Brew Demo', 'Temporarily unavailable cold brew', 40000, 'out_of_stock'),
-       ($5, $8, $11, 'Cola Demo', 'Classic cola', 20000, 'active'),
-       ($6, $8, $11, 'Sparkling Water Demo', 'Sparkling mineral water', 25000, 'out_of_stock')
+       ($1, $7, $9, 'Espresso Demo', 'Classic double espresso', 35000, '/uploads/products/espresso.jpg', 'active'),
+       ($2, $7, $10, 'Brown Sugar Milk Tea Demo', 'Milk tea with brown sugar pearls', 45000, '/uploads/products/brown-sugar-milk-tea.jpg', 'active'),
+       ($3, $7, $10, 'Seasonal Milk Tea Demo', 'A hidden seasonal menu item', 50000, '/uploads/products/seasonal-strawberry-milk-tea.jpg', 'hidden'),
+       ($4, $7, $9, 'Cold Brew Demo', 'Temporarily unavailable cold brew', 40000, '/uploads/products/cold-brew.jpg', 'out_of_stock'),
+       ($5, $8, $11, 'Cola Demo', 'Classic cola', 20000, '/uploads/products/cola.jpg', 'active'),
+       ($6, $8, $11, 'Sparkling Water Demo', 'Sparkling mineral water', 25000, '/uploads/products/sparkling-water.jpg', 'out_of_stock'),
+       ($12, $7, $9, 'Vietnamese Iced Coffee Demo', 'Vietnamese coffee with condensed milk', 39000, '/uploads/products/vietnamese-iced-coffee.jpg', 'active'),
+       ($13, $7, $10, 'Peach Tea Demo', 'Black tea with peach slices', 42000, '/uploads/products/peach-tea.jpg', 'active')
      ON CONFLICT ("id") DO UPDATE SET
        "store_id" = EXCLUDED."store_id",
        "category_id" = EXCLUDED."category_id",
        "name" = EXCLUDED."name",
        "description" = EXCLUDED."description",
        "price" = EXCLUDED."price",
+       "image_url" = EXCLUDED."image_url",
        "status" = EXCLUDED."status",
        "updated_at" = now()`,
     [
@@ -150,6 +155,8 @@ async function seedCategoriesAndProducts(
       IDS.categories.coffee,
       IDS.categories.milkTea,
       IDS.categories.softDrink,
+      IDS.products.vietnameseIcedCoffee,
+      IDS.products.peachTea,
     ],
   );
 }

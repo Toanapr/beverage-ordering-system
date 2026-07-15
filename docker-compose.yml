@@ -1,6 +1,40 @@
-version: '3.9'
-
 services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: beverage_backend
+    restart: always
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DB_HOST: db
+      DB_PORT: 5432
+      DATABASE_URL: postgres://${DB_USERNAME:-postgres}:${DB_PASSWORD:-postgres}@db:5432/${DB_DATABASE:-beverage_ordering}
+      UPLOAD_DIR: /app/uploads
+      RUN_DB_SEED: ${RUN_DB_SEED:-true}
+      CLIENT_URL: ${CLIENT_URL:-http://localhost:5173}
+    ports:
+      - '3000:3000'
+    volumes:
+      - uploads_data:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+
+  ui:
+    image: nginx:alpine
+    container_name: beverage_ui
+    restart: always
+    ports:
+      - '${UI_PORT:-5173}:80'
+    volumes:
+      - ./UI/steep.html:/usr/share/nginx/html/index.html:ro
+    depends_on:
+      - backend
+
   db:
     image: postgres:16
     container_name: beverage_db
@@ -14,6 +48,15 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -U ${DB_USERNAME:-postgres} -d ${DB_DATABASE:-beverage_ordering}',
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   pgweb:
     image: sosedoff/pgweb
@@ -28,3 +71,4 @@ services:
 
 volumes:
   postgres_data:
+  uploads_data:
