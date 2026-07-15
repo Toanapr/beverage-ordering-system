@@ -59,7 +59,7 @@ export class ProductsController {
   }
 
   @Patch(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, StoreProductOwnershipGuard)
   @Roles(UserRole.STAFF)
   @UpdateProductSwagger()
   update(

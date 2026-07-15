@@ -519,7 +519,7 @@ describe('Products (Integration)', () => {
         .patch(`/products/${activeProductB}`)
         .set('Authorization', `Bearer ${staffTokenA}`)
         .send({ status: 'hidden' })
-        .expect(404);
+        .expect(403);
       await request(app.getHttpServer())
         .patch(`/products/${createdProductId}`)
         .set('Authorization', `Bearer ${adminToken}`)
