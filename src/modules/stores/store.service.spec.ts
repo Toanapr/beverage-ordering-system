@@ -124,6 +124,53 @@ describe('StoresService', () => {
     });
   });
 
+  describe('findAll', () => {
+    it('should return all stores matching search, isOpen, isLocked filters', async () => {
+      repository.findAndCount.mockResolvedValue([[mockStore], 1]);
+
+      const query = {
+        page: 1,
+        limit: 10,
+        search: 'ABC',
+        isOpen: false,
+        isLocked: true,
+      };
+
+      const result = await service.findAll(query);
+
+      expect(repository.findAndCount).toHaveBeenCalledWith({
+        skip: 0,
+        take: 10,
+        sortBy: 'createdAt',
+        sortOrder: 'DESC',
+        filter: {
+          search: 'ABC',
+          isOpen: false,
+          isLocked: true,
+        },
+      });
+      expect(result.meta).toEqual({
+        page: 1,
+        limit: 10,
+        totalItems: 1,
+        totalPages: 1,
+        hasNextPage: false,
+        hasPrevPage: false,
+      });
+      expect(result.items).toEqual([mockStore]);
+    });
+
+    it('should calculate correct offset when page > 1', async () => {
+      repository.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findAll({ page: 2, limit: 5 });
+
+      expect(repository.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({ skip: 5, take: 5 }),
+      );
+    });
+  });
+
   describe('findPublicOneOrThrow', () => {
     it('should throw NotFoundException if the store is locked', async () => {
       repository.findById.mockResolvedValue({ ...mockStore, isLocked: true });

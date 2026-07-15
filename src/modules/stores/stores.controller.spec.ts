@@ -26,6 +26,7 @@ describe('StoresController', () => {
           useValue: {
             findPublicList: jest.fn(),
             findPublicOneOrThrow: jest.fn(),
+            findAll: jest.fn(),
             create: jest.fn(),
             update: jest.fn(),
             lock: jest.fn(),
@@ -52,6 +53,24 @@ describe('StoresController', () => {
       const result = await controller.findAll(query);
 
       expect(service.findPublicList).toHaveBeenCalledWith(query);
+      expect(result).toEqual(paginatedResult);
+    });
+  });
+
+  describe('findAllForAdmin', () => {
+    it('should call storesService.findAll and return the result', async () => {
+      const query: QueryStoreDto = {
+        page: 1,
+        limit: 10,
+        isOpen: false,
+        isLocked: true,
+      };
+      const paginatedResult = { items: [mockStore], meta: { totalItems: 1 } };
+      service.findAll.mockResolvedValue(paginatedResult as any);
+
+      const result = await controller.findAllForAdmin(query);
+
+      expect(service.findAll).toHaveBeenCalledWith(query);
       expect(result).toEqual(paginatedResult);
     });
   });
