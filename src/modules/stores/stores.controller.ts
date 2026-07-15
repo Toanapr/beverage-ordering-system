@@ -22,6 +22,7 @@ import {
   GetStoreSwagger,
   LockStoreSwagger,
   UnlockStoreSwagger,
+  ListAdminStoreSwagger,
 } from './decorators';
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/common/guards/roles.guard';
@@ -36,6 +37,14 @@ export class StoresController {
   @ListStoreSwagger()
   findAll(@Query() query: QueryStoreDto) {
     return this.storesService.findPublicList(query);
+  }
+
+  @Get('admin')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ListAdminStoreSwagger()
+  findAllForAdmin(@Query() query: QueryStoreDto) {
+    return this.storesService.findAll(query);
   }
 
   @Get(':id')

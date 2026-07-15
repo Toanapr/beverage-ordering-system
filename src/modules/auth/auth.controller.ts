@@ -24,6 +24,7 @@ import { LogoutDto } from './dto/logout.dto';
 import { RefreshSwagger } from './decorators/refresh.swagger';
 import { LoginSwagger } from './decorators/login.swagger';
 import { RegisterSwagger } from './decorators/register.swagger';
+import { GetMeSwagger } from './decorators/me.swagger';
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { User } from 'src/modules/users/entities/user.entity';
@@ -47,6 +48,7 @@ export class AuthController {
   @Get('me')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
+  @GetMeSwagger()
   me(@CurrentUser() user: User) {
     return user;
   }

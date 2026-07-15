@@ -6,3 +6,4 @@ export * from './lock-store.swagger';
 export * from './unlock-store.swagger';
 export * from './get-staff-store.swagger';
 export * from './update-staff-store.swagger';
+export * from './list-admin-store.swagger';
