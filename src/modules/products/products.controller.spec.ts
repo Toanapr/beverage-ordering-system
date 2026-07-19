@@ -154,55 +154,14 @@ describe('ProductsController', () => {
   // ── GET /products ─────────────────────────────────────────────────────────
 
   describe('findAll', () => {
-    it('should allow ADMIN to query with an explicit storeId', async () => {
+    it('should delegate to service.findAll', async () => {
       const query: QueryProductDto = { page: 1, limit: 10, storeId: 'store-2' };
       service.findAll.mockResolvedValue(mockPaginatedResult as any);
 
       const result = await controller.findAll(query, mockAdmin);
 
-      // Admin storeId should NOT be overridden
-      expect(query.storeId).toBe('store-2');
-      expect(service.findAll).toHaveBeenCalledWith(query);
+      expect(service.findAll).toHaveBeenCalledWith(query, mockAdmin);
       expect(result).toEqual(mockPaginatedResult);
-    });
-
-    it('should allow ADMIN to query without any storeId filter', async () => {
-      const query: QueryProductDto = { page: 1, limit: 10 };
-      service.findAll.mockResolvedValue(mockPaginatedResult as any);
-
-      await controller.findAll(query, mockAdmin);
-
-      expect(query.storeId).toBeUndefined();
-      expect(service.findAll).toHaveBeenCalledWith(query);
-    });
-
-    it('should force STAFF to filter by their own storeId, ignoring any request param', async () => {
-      const query: QueryProductDto = { page: 1, limit: 10 };
-      service.findAll.mockResolvedValue(mockPaginatedResult as any);
-
-      await controller.findAll(query, mockStaff);
-
-      expect(query.storeId).toBe('store-1');
-      expect(service.findAll).toHaveBeenCalledWith(query);
-    });
-
-    it('should throw BadRequestException if STAFF manually passes a storeId', async () => {
-      const query: QueryProductDto = { page: 1, limit: 10, storeId: 'store-2' };
-
-      await expect(controller.findAll(query, mockStaff)).rejects.toThrow(
-        BadRequestException,
-      );
-      expect(service.findAll).not.toHaveBeenCalled();
-    });
-
-    it('should throw ForbiddenException if STAFF has no store assigned', async () => {
-      const unassignedStaff: User = { ...mockStaff, storeId: null };
-      const query: QueryProductDto = { page: 1, limit: 10 };
-
-      await expect(controller.findAll(query, unassignedStaff)).rejects.toThrow(
-        ForbiddenException,
-      );
-      expect(service.findAll).not.toHaveBeenCalled();
     });
   });
 

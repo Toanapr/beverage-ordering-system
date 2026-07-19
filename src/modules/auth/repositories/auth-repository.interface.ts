@@ -6,4 +6,4 @@ export interface IAuthRepository {
   create(user: Partial<User>): Promise<User>;
 }
 
-export const I_AUTH_REPOSIROTY = 'I_AUTH_REPOSIROTY';
+export const I_AUTH_REPOSITORY = 'I_AUTH_REPOSITORY';

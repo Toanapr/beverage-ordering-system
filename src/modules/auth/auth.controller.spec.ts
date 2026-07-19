@@ -146,11 +146,10 @@ describe('AuthController', () => {
 
   describe('logout', () => {
     it('should successfully logout, clear cookie and return service response', async () => {
-      const logoutDto = { userId: 'user-1' };
       const logoutResult = { message: 'Logout successful' };
       service.logout.mockResolvedValue(logoutResult);
 
-      const result = await controller.logout(logoutDto, mockResponse);
+      const result = await controller.logout(mockUser, mockResponse);
 
       expect(service.logout).toHaveBeenCalledWith('user-1');
       expect(mockResponse.clearCookie).toHaveBeenCalledWith(

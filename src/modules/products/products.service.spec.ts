@@ -13,11 +13,29 @@ import {
 import { Product } from './entities/product.entity';
 import { ProductStatus } from 'src/common/enums/product-status.enum';
 import { Category } from '../categories/entities/category.entity';
+import { User } from '../users/entities/user.entity';
+import { UserRole } from 'src/common/enums/role.enum';
 
 describe('ProductsService', () => {
   let service: ProductsService;
   let repository: jest.Mocked<IProductRepository>;
   let categoryRepository: { findOne: jest.Mock };
+
+  const mockUser: User = {
+    id: 'user-1',
+    email: 'admin@example.com',
+    passwordHash: 'hashed',
+    fullName: 'Admin User',
+    role: UserRole.ADMIN,
+    isBanned: false,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    avatarUrl: '',
+    dob: new Date(),
+    gender: 'Male',
+    storeId: null,
+    store: null,
+  };
 
   const mockProduct: Product = {
     id: 'product-1',
@@ -66,11 +84,14 @@ describe('ProductsService', () => {
     it('should return paginated products successfully', async () => {
       repository.findAndCount.mockResolvedValue([[mockProduct], 1]);
 
-      const result = await service.findAll({
-        page: 1,
-        limit: 10,
-        storeId: 'store-1',
-      });
+      const result = await service.findAll(
+        {
+          page: 1,
+          limit: 10,
+          storeId: 'store-1',
+        },
+        mockUser,
+      );
 
       expect(repository.findAndCount).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -83,6 +104,69 @@ describe('ProductsService', () => {
       );
       expect(result.items).toEqual([mockProduct]);
       expect(result.meta.totalItems).toBe(1);
+    });
+
+    it('should force STAFF to filter by their own storeId', async () => {
+      repository.findAndCount.mockResolvedValue([[mockProduct], 1]);
+      const mockStaffUser = {
+        id: 'staff-1',
+        role: UserRole.STAFF,
+        storeId: 'store-1',
+      } as User;
+
+      const result = await service.findAll(
+        {
+          page: 1,
+          limit: 10,
+        },
+        mockStaffUser,
+      );
+
+      expect(repository.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({
+          filter: expect.objectContaining({
+            storeId: 'store-1',
+          }),
+        }),
+      );
+      expect(result.items).toEqual([mockProduct]);
+    });
+
+    it('should throw BadRequestException if STAFF manually passes a storeId', async () => {
+      const mockStaffUser = {
+        id: 'staff-1',
+        role: UserRole.STAFF,
+        storeId: 'store-1',
+      } as User;
+
+      await expect(
+        service.findAll(
+          {
+            page: 1,
+            limit: 10,
+            storeId: 'store-2',
+          },
+          mockStaffUser,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw ForbiddenException if STAFF has no store assigned', async () => {
+      const mockStaffUser = {
+        id: 'staff-1',
+        role: UserRole.STAFF,
+        storeId: null,
+      } as User;
+
+      await expect(
+        service.findAll(
+          {
+            page: 1,
+            limit: 10,
+          },
+          mockStaffUser,
+        ),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 

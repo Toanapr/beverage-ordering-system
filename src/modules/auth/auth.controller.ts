@@ -20,7 +20,6 @@ import {
   REFRESH_TOKEN_COOKIE_NAME,
 } from './constants/cookie.constants';
 import { LogoutSwagger } from './decorators/logout.swagger';
-import { LogoutDto } from './dto/logout.dto';
 import { RefreshSwagger } from './decorators/refresh.swagger';
 import { LoginSwagger } from './decorators/login.swagger';
 import { RegisterSwagger } from './decorators/register.swagger';
@@ -100,13 +99,16 @@ export class AuthController {
   }
 
   @Post('logout')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
   @LogoutSwagger()
   async logout(
-    @Body() body: LogoutDto,
+    @CurrentUser() user: User,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const result = await this.authService.logout(body.userId);
+    const userId = user.id;
+    const result = await this.authService.logout(userId);
     res.clearCookie(REFRESH_TOKEN_COOKIE_NAME, { path: '/auth/refresh' });
     return result;
   }

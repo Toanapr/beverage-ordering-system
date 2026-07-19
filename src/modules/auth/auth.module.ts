@@ -9,7 +9,7 @@ import { RefreshToken } from './entities/refresh-token.entity';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { I_REFRESH_TOKEN_REPOSITORY } from './repositories/refresh-token-repository.interface';
 import { RefreshTokenRepository } from './repositories/refresh-token.repository';
-import { I_AUTH_REPOSIROTY } from './repositories/auth-repository.interface';
+import { I_AUTH_REPOSITORY } from './repositories/auth-repository.interface';
 import { AuthRepository } from './repositories/auth.repository';
 import { JwtStrategy } from 'src/common/strategies/jwt.strategy';
 
@@ -33,7 +33,7 @@ import { JwtStrategy } from 'src/common/strategies/jwt.strategy';
     AuthService,
     JwtStrategy,
     {
-      provide: I_AUTH_REPOSIROTY,
+      provide: I_AUTH_REPOSITORY,
       useClass: AuthRepository,
     },
     {
@@ -41,5 +41,6 @@ import { JwtStrategy } from 'src/common/strategies/jwt.strategy';
       useClass: RefreshTokenRepository,
     },
   ],
+  exports: [I_REFRESH_TOKEN_REPOSITORY],
 })
 export class AuthModule {}

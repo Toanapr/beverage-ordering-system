@@ -17,14 +17,14 @@ import { UserRole } from 'src/common/enums/role.enum';
 import { LoginDto } from './dto/login.dto';
 import { ConfigService } from '@nestjs/config';
 import {
-  I_AUTH_REPOSIROTY,
+  I_AUTH_REPOSITORY,
   type IAuthRepository,
 } from './repositories/auth-repository.interface';
 
 @Injectable()
 export class AuthService {
   constructor(
-    @Inject(I_AUTH_REPOSIROTY)
+    @Inject(I_AUTH_REPOSITORY)
     private readonly authRepository: IAuthRepository,
 
     @Inject(I_REFRESH_TOKEN_REPOSITORY)
