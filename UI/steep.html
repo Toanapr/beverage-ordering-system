@@ -1526,7 +1526,7 @@
         }
         async function doLogout() {
             try {
-                if (state.user) await apiRequest('POST', '/auth/logout', { body: { userId: state.user.id } });
+                if (state.user) await apiRequest('POST', '/auth/logout');
                 toast('Logged out', 'ok');
             } catch (e) { toast('Logout call failed: ' + e.message, 'err'); }
             state.accessToken = null; state.user = null;
