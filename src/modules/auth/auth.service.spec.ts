@@ -8,7 +8,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { AuthService } from './auth.service';
-import { I_AUTH_REPOSIROTY } from './repositories/auth-repository.interface';
+import { I_AUTH_REPOSITORY } from './repositories/auth-repository.interface';
 import { I_REFRESH_TOKEN_REPOSITORY } from './repositories/refresh-token-repository.interface';
 import { UserRole } from 'src/common/enums/role.enum';
 import { User } from 'src/modules/users/entities/user.entity';
@@ -54,7 +54,7 @@ describe('AuthService', () => {
       providers: [
         AuthService,
         {
-          provide: I_AUTH_REPOSIROTY,
+          provide: I_AUTH_REPOSITORY,
           useValue: {
             findByEmail: jest.fn(),
             findById: jest.fn(),
@@ -88,7 +88,7 @@ describe('AuthService', () => {
     }).compile();
 
     service = module.get<AuthService>(AuthService);
-    authRepository = module.get(I_AUTH_REPOSIROTY);
+    authRepository = module.get(I_AUTH_REPOSITORY);
     refreshTokenRepository = module.get(I_REFRESH_TOKEN_REPOSITORY);
     jwtService = module.get(JwtService);
     configService = module.get(ConfigService);

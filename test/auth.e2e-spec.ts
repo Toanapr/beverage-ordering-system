@@ -16,8 +16,6 @@ describe('AuthController (Integration)', () => {
   const testPassword = 'password123';
   const testFullName = 'Nguyen Van Test';
 
-  let storedUserId: string;
-
   beforeAll(async () => {
     context = await setupTestContext();
     app = context.app;
@@ -133,8 +131,6 @@ describe('AuthController (Integration)', () => {
       const cookie = getRefreshCookie(response);
       expect(cookie).toBeDefined();
       expect(cookie).toMatch(/HttpOnly/i);
-
-      storedUserId = data.user.id;
     });
 
     it('should fail (401 Unauthorized) on wrong password', async () => {
@@ -329,14 +325,17 @@ describe('AuthController (Integration)', () => {
     it('should log out successfully and clear the refreshToken cookie', async () => {
       const agent = request.agent(app.getHttpServer());
 
-      await agent
+      const loginRes = await agent
         .post('/auth/login')
         .send({ email: testEmail, password: testPassword })
         .expect(200);
 
+      const accessToken = loginRes.body.data.accessToken;
+
       const response = await agent
         .post('/auth/logout')
-        .send({ userId: storedUserId })
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send()
         .expect(200);
 
       expectSuccessEnvelope(response.body);
@@ -347,17 +346,27 @@ describe('AuthController (Integration)', () => {
       expect(cookie).toMatch(/refreshToken=;|Expires=Thu, 01 Jan 1970/i);
     });
 
+    it('should fail (401 Unauthorized) when calling logout without auth', async () => {
+      await request(app.getHttpServer())
+        .post('/auth/logout')
+        .send()
+        .expect(401);
+    });
+
     it('should fail (401 Unauthorized) when reusing the old refreshToken cookie after logout', async () => {
       const agent = request.agent(app.getHttpServer());
 
-      await agent
+      const loginRes = await agent
         .post('/auth/login')
         .send({ email: testEmail, password: testPassword })
         .expect(200);
 
+      const accessToken = loginRes.body.data.accessToken;
+
       await agent
         .post('/auth/logout')
-        .send({ userId: storedUserId })
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send()
         .expect(200);
 
       await agent.post('/auth/refresh').send().expect(401);
