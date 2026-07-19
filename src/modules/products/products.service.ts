@@ -21,6 +21,8 @@ import { UpdateProductDto } from './dto/update-product.dto';
 import { Category } from '../categories/entities/category.entity';
 import { Repository } from 'typeorm';
 import { ProductStatus } from 'src/common/enums/product-status.enum';
+import { User } from '../users/entities/user.entity';
+import { UserRole } from 'src/common/enums/role.enum';
 
 @Injectable()
 export class ProductsService {
@@ -82,7 +84,22 @@ export class ProductsService {
 
   async findAll(
     query: QueryProductDto,
+    user: User,
   ): Promise<PaginatedResponseDto<Product>> {
+    if (user.role === UserRole.STAFF) {
+      if (query.storeId) {
+        throw new BadRequestException(
+          'Staff is not allowed to provide storeId manually',
+        );
+      }
+      if (!user.storeId) {
+        throw new ForbiddenException(
+          'Staff member has not been assigned to any store',
+        );
+      }
+      query.storeId = user.storeId;
+    }
+
     const page = query.page ?? 1;
     const limit = query.limit ?? 10;
     const skip = getOffset(page, limit);

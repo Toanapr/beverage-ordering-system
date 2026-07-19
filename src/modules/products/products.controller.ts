@@ -1,8 +1,6 @@
 import {
-  BadRequestException,
   Body,
   Controller,
-  ForbiddenException,
   Get,
   Param,
   Patch,
@@ -75,20 +73,7 @@ export class ProductsController {
   @Roles(UserRole.ADMIN, UserRole.STAFF)
   @ListProductSwagger()
   async findAll(@Query() query: QueryProductDto, @CurrentUser() user: User) {
-    if (user.role === UserRole.STAFF) {
-      if (query.storeId) {
-        throw new BadRequestException(
-          'Staff is not allowed to provide storeId manually',
-        );
-      }
-      if (!user.storeId) {
-        throw new ForbiddenException(
-          'Staff member has not been assigned to any store',
-        );
-      }
-      query.storeId = user.storeId;
-    }
-    return this.productsService.findAll(query);
+    return this.productsService.findAll(query, user);
   }
 
   @Get(':id')
