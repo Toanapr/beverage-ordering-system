@@ -13,6 +13,7 @@ import { ProductStatus } from 'src/common/enums/product-status.enum';
 import { PaymentMethod } from 'src/common/enums/payment-method.enum';
 import { OrderStatus } from 'src/common/enums/order-status.enum';
 import * as orderCodeUtil from 'src/common/utils/order-code.util';
+import { Product } from '../products/entities/product.entity';
 
 jest.mock('src/common/utils/order-code.util', () => ({
   generateOrderCode: jest.fn(),
@@ -24,18 +25,15 @@ describe('OrdersService', () => {
   let orderRepository: jest.Mocked<IOrderRepository>;
   let productsService: jest.Mocked<Partial<ProductsService>>;
   let storesService: jest.Mocked<Partial<StoresService>>;
-  let dataSource: jest.Mocked<Partial<DataSource>>;
-
-  let managerMock: {
-    create: jest.Mock;
-    save: jest.Mock;
-  };
+  let managerMock: any;
+  let dataSource: Partial<DataSource>;
+  let productRepositoryMock: any;
 
   const baseDto: CreateOrderDto = {
     storeId: 'store-1',
     receiverName: 'John Doe',
     receiverPhone: '0901234567',
-    deliveryAddress: '123 Main Street',
+    deliveryAddress: '123 Main St',
     items: [
       { productId: 'product-1', quantity: 2 },
       { productId: 'product-2', quantity: 1 },
@@ -77,7 +75,17 @@ describe('OrdersService', () => {
       assertOrderable: jest.fn(),
     };
 
+    productRepositoryMock = {
+      find: jest.fn(),
+    };
+
     managerMock = {
+      getRepository: jest.fn().mockImplementation((entity) => {
+        if (entity === Product) {
+          return productRepositoryMock;
+        }
+        return {};
+      }),
       create: jest.fn((entity, data) => data),
       save: jest.fn((data) => {
         if (Array.isArray(data)) {
@@ -106,7 +114,7 @@ describe('OrdersService', () => {
   describe('create', () => {
     it('should create an order successfully with correct subtotal and total amount', async () => {
       (storesService.assertOrderable as jest.Mock).mockResolvedValue(undefined);
-      (productsService.findByIds as jest.Mock).mockResolvedValue([
+      productRepositoryMock.find.mockResolvedValue([
         activeProduct1,
         activeProduct2,
       ]);
@@ -117,10 +125,7 @@ describe('OrdersService', () => {
       expect(storesService.assertOrderable).toHaveBeenCalledWith(
         baseDto.storeId,
       );
-      expect(productsService.findByIds).toHaveBeenCalledWith([
-        'product-1',
-        'product-2',
-      ]);
+      expect(productRepositoryMock.find).toHaveBeenCalled();
       expect(dataSource.transaction).toHaveBeenCalledTimes(1);
 
       // subtotal = 100*2 + 50*1 = 250
@@ -164,16 +169,14 @@ describe('OrdersService', () => {
         'Store is currently closed',
       );
 
-      expect(productsService.findByIds).not.toHaveBeenCalled();
+      expect(productRepositoryMock.find).not.toHaveBeenCalled();
       expect(dataSource.transaction).not.toHaveBeenCalled();
     });
 
     it('should throw BadRequestException if a product does not exist', async () => {
       (storesService.assertOrderable as jest.Mock).mockResolvedValue(undefined);
       // Chỉ trả về product-1, thiếu product-2
-      (productsService.findByIds as jest.Mock).mockResolvedValue([
-        activeProduct1,
-      ]);
+      productRepositoryMock.find.mockResolvedValue([activeProduct1]);
 
       await expect(service.create('customer-1', baseDto)).rejects.toThrow(
         BadRequestException,
@@ -181,13 +184,11 @@ describe('OrdersService', () => {
       await expect(service.create('customer-1', baseDto)).rejects.toThrow(
         'Product product-2 does not exist',
       );
-
-      expect(dataSource.transaction).not.toHaveBeenCalled();
     });
 
     it('should throw BadRequestException if product does not belong to the store', async () => {
       (storesService.assertOrderable as jest.Mock).mockResolvedValue(undefined);
-      (productsService.findByIds as jest.Mock).mockResolvedValue([
+      productRepositoryMock.find.mockResolvedValue([
         { ...activeProduct1, storeId: 'other-store' },
         activeProduct2,
       ]);
@@ -195,13 +196,11 @@ describe('OrdersService', () => {
       await expect(service.create('customer-1', baseDto)).rejects.toThrow(
         'Product "Product 1" does not belong to this store',
       );
-
-      expect(dataSource.transaction).not.toHaveBeenCalled();
     });
 
     it('should throw BadRequestException if product is not active', async () => {
       (storesService.assertOrderable as jest.Mock).mockResolvedValue(undefined);
-      (productsService.findByIds as jest.Mock).mockResolvedValue([
+      productRepositoryMock.find.mockResolvedValue([
         { ...activeProduct1, status: ProductStatus.OUT_OF_STOCK },
         activeProduct2,
       ]);
@@ -209,13 +208,11 @@ describe('OrdersService', () => {
       await expect(service.create('customer-1', baseDto)).rejects.toThrow(
         'Product "Product 1" is currently unavailable',
       );
-
-      expect(dataSource.transaction).not.toHaveBeenCalled();
     });
 
     it('should retry generating order code if a collision occurs, then succeed', async () => {
       (storesService.assertOrderable as jest.Mock).mockResolvedValue(undefined);
-      (productsService.findByIds as jest.Mock).mockResolvedValue([
+      productRepositoryMock.find.mockResolvedValue([
         activeProduct1,
         activeProduct2,
       ]);
@@ -241,7 +238,7 @@ describe('OrdersService', () => {
 
     it('should throw if unable to generate a unique order code after max retries', async () => {
       (storesService.assertOrderable as jest.Mock).mockResolvedValue(undefined);
-      (productsService.findByIds as jest.Mock).mockResolvedValue([
+      productRepositoryMock.find.mockResolvedValue([
         activeProduct1,
         activeProduct2,
       ]);

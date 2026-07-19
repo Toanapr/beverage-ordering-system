@@ -10,7 +10,7 @@ import {
   type IOrderRepository,
 } from './repositories/order-repository.interface';
 import { StoresService } from '../stores/stores.service';
-import { DataSource } from 'typeorm';
+import { DataSource, In } from 'typeorm';
 import { generateOrderCode } from 'src/common/utils/order-code.util';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { CancelOrderDto } from './dto/cancel-order.dto';
@@ -30,6 +30,7 @@ import { User } from 'src/modules/users/entities/user.entity';
 import { OrderHistoryResponseDto } from './dto/responses/order-history-response.dto';
 import { QueryStaffOrderStatisticsDto } from './dto/query-staff-order-statistics.dto';
 import { StaffOrderStatisticsResponseDto } from './dto/responses/staff-order-statistics-response.dto';
+import { Product } from '../products/entities/product.entity';
 
 const MAX_ORDER_CODE_RETRY = 5;
 
@@ -46,12 +47,19 @@ export class OrdersService {
   async create(customerId: string, dto: CreateOrderDto): Promise<Order> {
     await this.storesService.assertOrderable(dto.storeId);
 
-    const { items, subtotal } = await this.buildOrderItems(dto);
-    const totalAmount = subtotal;
-
     const orderCode = await this.generateUniqueOrderCode();
 
     return this.dataSource.transaction(async (manager) => {
+      const productIds = dto.items.map((item) => item.productId);
+
+      const products = await manager.getRepository(Product).find({
+        where: { id: In(productIds) },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      const { items, subtotal } = this.buildOrderItems(products, dto);
+      const totalAmount = subtotal;
+
       const order = manager.create(Order, {
         orderCode,
         customerId,
@@ -74,11 +82,10 @@ export class OrdersService {
     });
   }
 
-  private async buildOrderItems(
+  private buildOrderItems(
+    products: Product[],
     dto: CreateOrderDto,
-  ): Promise<{ items: OrderItemComputed[]; subtotal: number }> {
-    const productIds = dto.items.map((item) => item.productId);
-    const products = await this.productsService.findByIds(productIds);
+  ): { items: OrderItemComputed[]; subtotal: number } {
     const productMap = new Map(products.map((p) => [p.id, p]));
 
     let subtotal = 0;
