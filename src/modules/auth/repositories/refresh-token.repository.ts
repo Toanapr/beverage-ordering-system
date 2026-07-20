@@ -30,6 +30,12 @@ export class RefreshTokenRepository implements IRefreshTokenRepository {
     });
   }
 
+  async findAllByUserId(userId: string): Promise<RefreshToken[]> {
+    return this.typeOrmRepository.find({
+      where: { userId },
+    });
+  }
+
   async revokeAllByUserId(userId: string): Promise<void> {
     await this.typeOrmRepository.update({ userId }, { isRevoked: true });
   }
