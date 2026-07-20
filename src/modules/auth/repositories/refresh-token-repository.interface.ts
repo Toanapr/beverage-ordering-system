@@ -7,6 +7,7 @@ export interface IRefreshTokenRepository {
     expiresAt: Date,
   ): Promise<RefreshToken>;
   findActiveByUserId(userId: string): Promise<RefreshToken | null>;
+  findAllByUserId(userId: string): Promise<RefreshToken[]>;
   revokeAllByUserId(userId: string): Promise<void>;
   deleteByUserId(userId: string): Promise<void>;
 }

@@ -104,17 +104,24 @@ export class AuthService {
     const tokenRecord = await this.refreshTokenRepository.findActiveByUserId(
       user.id,
     );
-    if (!tokenRecord)
-      throw new UnauthorizedException('Invalid or expired token');
 
-    const isMatch = await bcrypt.compare(refreshToken, tokenRecord.token_hash);
-    if (!isMatch) throw new UnauthorizedException('Invalid token');
+    let isMatch = false;
+    if (tokenRecord) {
+      isMatch = await bcrypt.compare(refreshToken, tokenRecord.token_hash);
+    }
 
-    const payload = { sub: user.id, email: user.email, role: user.role };
-    const tokens = await this.generateTokens(payload);
+    if (isMatch) {
+      const payload = { sub: user.id, email: user.email, role: user.role };
+      const tokens = await this.generateTokens(payload);
 
-    await this.updateRefreshToken(user.id, tokens.refreshToken);
-    return tokens;
+      await this.updateRefreshToken(user.id, tokens.refreshToken);
+      return tokens;
+    }
+
+    await this.refreshTokenRepository.revokeAllByUserId(user.id);
+    throw new ForbiddenException(
+      'Compromised refresh token detected. All sessions revoked.',
+    );
   }
 
   async logout(userId: string) {
@@ -142,10 +149,10 @@ export class AuthService {
     const salt = await bcrypt.genSalt();
     const hash = await bcrypt.hash(refreshToken, salt);
 
-    await this.refreshTokenRepository.deleteByUserId(userId);
+    await this.refreshTokenRepository.revokeAllByUserId(userId);
 
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7);
+    const decoded = this.jwtService.decode<{ exp: number }>(refreshToken);
+    const expiresAt = new Date(decoded.exp * 1000);
 
     await this.refreshTokenRepository.create(userId, hash, expiresAt);
   }

@@ -66,6 +66,7 @@ describe('AuthService', () => {
           useValue: {
             create: jest.fn(),
             findActiveByUserId: jest.fn(),
+            findAllByUserId: jest.fn().mockResolvedValue([]),
             revokeAllByUserId: jest.fn(),
             deleteByUserId: jest.fn(),
           },
@@ -75,6 +76,7 @@ describe('AuthService', () => {
           useValue: {
             signAsync: jest.fn(),
             verifyAsync: jest.fn(),
+            decode: jest.fn(),
           },
         },
         {
@@ -92,6 +94,9 @@ describe('AuthService', () => {
     refreshTokenRepository = module.get(I_REFRESH_TOKEN_REPOSITORY);
     jwtService = module.get(JwtService);
     configService = module.get(ConfigService);
+    jwtService.decode.mockReturnValue({
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    });
   });
 
   afterEach(() => {
@@ -175,7 +180,7 @@ describe('AuthService', () => {
         mockUser.passwordHash,
       );
       expect(jwtService.signAsync).toHaveBeenCalledTimes(2);
-      expect(refreshTokenRepository.deleteByUserId).toHaveBeenCalledWith(
+      expect(refreshTokenRepository.revokeAllByUserId).toHaveBeenCalledWith(
         mockUser.id,
       );
       expect(refreshTokenRepository.create).toHaveBeenCalledWith(
@@ -266,7 +271,7 @@ describe('AuthService', () => {
         oldRefreshToken,
         mockRefreshToken.token_hash,
       );
-      expect(refreshTokenRepository.deleteByUserId).toHaveBeenCalledWith(
+      expect(refreshTokenRepository.revokeAllByUserId).toHaveBeenCalledWith(
         mockUser.id,
       );
       expect(refreshTokenRepository.create).toHaveBeenCalledWith(
@@ -309,17 +314,20 @@ describe('AuthService', () => {
       );
     });
 
-    it('should throw UnauthorizedException if no active refresh token in db', async () => {
+    it('should throw ForbiddenException if no active refresh token in db', async () => {
       jwtService.verifyAsync.mockResolvedValue({ sub: 'user-1' });
       authRepository.findById.mockResolvedValue(mockUser);
       refreshTokenRepository.findActiveByUserId.mockResolvedValue(null);
 
       await expect(service.refreshTokens('some-token')).rejects.toThrow(
-        UnauthorizedException,
+        ForbiddenException,
+      );
+      expect(refreshTokenRepository.revokeAllByUserId).toHaveBeenCalledWith(
+        mockUser.id,
       );
     });
 
-    it('should throw UnauthorizedException if refresh token hash does not match db record', async () => {
+    it('should throw ForbiddenException if refresh token hash does not match db record', async () => {
       jwtService.verifyAsync.mockResolvedValue({ sub: 'user-1' });
       authRepository.findById.mockResolvedValue(mockUser);
       refreshTokenRepository.findActiveByUserId.mockResolvedValue(
@@ -328,7 +336,36 @@ describe('AuthService', () => {
       (bcrypt.compare as jest.Mock).mockResolvedValue(false);
 
       await expect(service.refreshTokens('some-token')).rejects.toThrow(
-        UnauthorizedException,
+        ForbiddenException,
+      );
+      expect(refreshTokenRepository.revokeAllByUserId).toHaveBeenCalledWith(
+        mockUser.id,
+      );
+    });
+
+    it('should set correct expiresAt based on decoded refresh token exp claim', async () => {
+      const oldRefreshToken = 'old-refresh-token';
+      jwtService.verifyAsync.mockResolvedValue({ sub: 'user-1' });
+      authRepository.findById.mockResolvedValue(mockUser);
+      refreshTokenRepository.findActiveByUserId.mockResolvedValue(
+        mockRefreshToken,
+      );
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      (bcrypt.genSalt as jest.Mock).mockResolvedValue('salt');
+      (bcrypt.hash as jest.Mock).mockResolvedValue('new-token-hash');
+      jwtService.signAsync
+        .mockResolvedValueOnce('new-access-token')
+        .mockResolvedValueOnce('new-refresh-token');
+
+      const expectedExp = Math.floor(Date.now() / 1000) + 7200; // 2 hours from now
+      jwtService.decode.mockReturnValue({ exp: expectedExp });
+
+      await service.refreshTokens(oldRefreshToken);
+
+      expect(refreshTokenRepository.create).toHaveBeenCalledWith(
+        mockUser.id,
+        'new-token-hash',
+        new Date(expectedExp * 1000),
       );
     });
   });
