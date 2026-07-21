@@ -13,11 +13,20 @@ const IDS = {
   stores: {
     main: '10000000-0000-4000-8000-000000000001',
     secondary: '10000000-0000-4000-8000-000000000002',
+    riverside: '10000000-0000-4000-8000-000000000003',
+    garden: '10000000-0000-4000-8000-000000000004',
+    campus: '10000000-0000-4000-8000-000000000005',
   },
   categories: {
     coffee: '20000000-0000-4000-8000-000000000001',
     milkTea: '20000000-0000-4000-8000-000000000002',
     softDrink: '20000000-0000-4000-8000-000000000003',
+    matcha: '20000000-0000-4000-8000-000000000004',
+    riversideTea: '20000000-0000-4000-8000-000000000005',
+    vietnameseCoffee: '20000000-0000-4000-8000-000000000006',
+    gardenFruitTea: '20000000-0000-4000-8000-000000000007',
+    campusCoffee: '20000000-0000-4000-8000-000000000008',
+    campusTea: '20000000-0000-4000-8000-000000000009',
   },
   products: {
     espresso: '30000000-0000-4000-8000-000000000001',
@@ -28,6 +37,12 @@ const IDS = {
     sparklingWater: '30000000-0000-4000-8000-000000000006',
     vietnameseIcedCoffee: '30000000-0000-4000-8000-000000000007',
     peachTea: '30000000-0000-4000-8000-000000000008',
+    mangoMatcha: '30000000-0000-4000-8000-000000000009',
+    lycheeJasmine: '30000000-0000-4000-8000-000000000010',
+    coconutCoffee: '30000000-0000-4000-8000-000000000011',
+    strawberryHibiscus: '30000000-0000-4000-8000-000000000012',
+    campusColdBrew: '30000000-0000-4000-8000-000000000013',
+    campusPeachTea: '30000000-0000-4000-8000-000000000014',
   },
   orders: {
     pending: '40000000-0000-4000-8000-000000000001',
@@ -85,18 +100,29 @@ async function upsertDemoUser(
 async function seedStores(manager: EntityManager): Promise<void> {
   await manager.query(
     `INSERT INTO "stores"
-      ("id", "name", "phone", "address", "is_open", "is_locked")
+      ("id", "name", "phone", "address", "is_open", "is_locked", "rating_avg", "rating_count")
      VALUES
-      ($1, 'Saigon Brew Demo', '0901000001', '1 Nguyen Hue, District 1, HCMC', true, false),
-      ($2, 'Closed Corner Demo', '0901000002', '2 Le Loi, District 1, HCMC', false, true)
+      ($1, 'Saigon Brew Demo', '0901000001', '1 Nguyễn Huệ, Quận 1, TP.HCM', true, false, 4.80, 128),
+      ($2, 'Closed Corner Demo', '0901000002', '2 Lê Lợi, Quận 1, TP.HCM', false, true, 4.20, 36),
+      ($3, 'Mộc Riverside', '0901000003', '21 Nguyễn Văn Hưởng, Thảo Điền, TP.HCM', true, false, 4.70, 94),
+      ($4, 'Vườn Nắng Coffee', '0901000004', '118 Phan Xích Long, Phú Nhuận, TP.HCM', true, false, 4.60, 72),
+      ($5, 'Mây Campus', '0901000005', '50 Lê Văn Việt, TP. Thủ Đức, TP.HCM', true, false, 4.50, 51)
      ON CONFLICT ("id") DO UPDATE SET
        "name" = EXCLUDED."name",
        "phone" = EXCLUDED."phone",
        "address" = EXCLUDED."address",
        "is_open" = EXCLUDED."is_open",
        "is_locked" = EXCLUDED."is_locked",
+       "rating_avg" = EXCLUDED."rating_avg",
+       "rating_count" = EXCLUDED."rating_count",
        "updated_at" = now()`,
-    [IDS.stores.main, IDS.stores.secondary],
+    [
+      IDS.stores.main,
+      IDS.stores.secondary,
+      IDS.stores.riverside,
+      IDS.stores.garden,
+      IDS.stores.campus,
+    ],
   );
 }
 
@@ -106,9 +132,15 @@ async function seedCategoriesAndProducts(
   await manager.query(
     `INSERT INTO "categories" ("id", "store_id", "name")
      VALUES
-       ($1, $4, 'Coffee'),
-       ($2, $4, 'Milk Tea'),
-       ($3, $5, 'Soft Drinks')
+       ($1, $10, 'Cà phê'),
+       ($2, $10, 'Trà sữa'),
+       ($3, $11, 'Nước giải khát'),
+       ($4, $12, 'Matcha và kem'),
+       ($5, $12, 'Trà thanh vị'),
+       ($6, $13, 'Cà phê Việt'),
+       ($7, $13, 'Trà trái cây'),
+       ($8, $14, 'Cà phê pha lạnh'),
+       ($9, $14, 'Trà hiện đại')
      ON CONFLICT ("id") DO UPDATE SET
        "store_id" = EXCLUDED."store_id",
        "name" = EXCLUDED."name",
@@ -117,23 +149,38 @@ async function seedCategoriesAndProducts(
       IDS.categories.coffee,
       IDS.categories.milkTea,
       IDS.categories.softDrink,
+      IDS.categories.matcha,
+      IDS.categories.riversideTea,
+      IDS.categories.vietnameseCoffee,
+      IDS.categories.gardenFruitTea,
+      IDS.categories.campusCoffee,
+      IDS.categories.campusTea,
       IDS.stores.main,
       IDS.stores.secondary,
+      IDS.stores.riverside,
+      IDS.stores.garden,
+      IDS.stores.campus,
     ],
   );
 
   await manager.query(
     `INSERT INTO "products"
-      ("id", "store_id", "category_id", "name", "description", "price", "image_url", "status")
+     ("id", "store_id", "category_id", "name", "description", "price", "image_url", "status")
      VALUES
-       ($1, $7, $9, 'Espresso Demo', 'Classic double espresso', 35000, '/uploads/products/espresso.jpg', 'active'),
-       ($2, $7, $10, 'Brown Sugar Milk Tea Demo', 'Milk tea with brown sugar pearls', 45000, '/uploads/products/brown-sugar-milk-tea.jpg', 'active'),
-       ($3, $7, $10, 'Seasonal Milk Tea Demo', 'A hidden seasonal menu item', 50000, '/uploads/products/seasonal-strawberry-milk-tea.jpg', 'hidden'),
-       ($4, $7, $9, 'Cold Brew Demo', 'Temporarily unavailable cold brew', 40000, '/uploads/products/cold-brew.jpg', 'out_of_stock'),
-       ($5, $8, $11, 'Cola Demo', 'Classic cola', 20000, '/uploads/products/cola.jpg', 'active'),
-       ($6, $8, $11, 'Sparkling Water Demo', 'Sparkling mineral water', 25000, '/uploads/products/sparkling-water.jpg', 'out_of_stock'),
-       ($12, $7, $9, 'Vietnamese Iced Coffee Demo', 'Vietnamese coffee with condensed milk', 39000, '/uploads/products/vietnamese-iced-coffee.jpg', 'active'),
-       ($13, $7, $10, 'Peach Tea Demo', 'Black tea with peach slices', 42000, '/uploads/products/peach-tea.jpg', 'active')
+       ($1, $15, $20, 'Espresso Demo', 'Espresso đôi đậm vị và cân bằng.', 35000, '/uploads/products/espresso.jpg', 'active'),
+       ($2, $15, $21, 'Trà sữa đường nâu', 'Trà sữa béo nhẹ cùng trân châu đường nâu.', 45000, '/uploads/products/brown-sugar-milk-tea.jpg', 'active'),
+       ($3, $15, $21, 'Trà sữa dâu theo mùa', 'Món theo mùa đang được ẩn khỏi thực đơn.', 50000, '/uploads/products/seasonal-strawberry-milk-tea.jpg', 'hidden'),
+       ($4, $15, $20, 'Cold Brew Demo', 'Cà phê ủ lạnh hiện đang tạm hết.', 40000, '/uploads/products/cold-brew.jpg', 'out_of_stock'),
+       ($5, $16, $22, 'Cola Demo', 'Cola cổ điển dùng lạnh.', 20000, '/uploads/products/cola.jpg', 'active'),
+       ($6, $16, $22, 'Nước khoáng có ga', 'Nước khoáng mát lạnh với ga nhẹ.', 25000, '/uploads/products/sparkling-water.jpg', 'out_of_stock'),
+       ($7, $15, $20, 'Cà phê sữa đá', 'Cà phê Việt pha cùng sữa đặc và đá.', 39000, '/uploads/products/vietnamese-iced-coffee.jpg', 'active'),
+       ($8, $15, $21, 'Trà đào', 'Trà đen thanh nhẹ cùng lát đào.', 42000, '/uploads/products/peach-tea.jpg', 'active'),
+       ($9, $17, $23, 'Matcha xoài', 'Matcha dịu, kem xoài chín và đá lạnh.', 59000, '/uploads/products/mango-matcha-latte.jpg', 'active'),
+       ($10, $17, $24, 'Trà nhài vải', 'Trà nhài thơm nhẹ cùng trái vải mọng nước.', 52000, '/uploads/products/lychee-jasmine-tea.jpg', 'active'),
+       ($11, $18, $25, 'Cà phê dừa', 'Cà phê Việt đậm vị phủ kem dừa mịn.', 55000, '/uploads/products/coconut-coffee.jpg', 'active'),
+       ($12, $18, $26, 'Trà bụp giấm dâu', 'Trà trái cây chua nhẹ, có ga và dâu tươi.', 54000, '/uploads/products/strawberry-hibiscus-tea.jpg', 'active'),
+       ($13, $19, $27, 'Cold Brew cam', 'Cà phê ủ lạnh với hương cam tươi.', 48000, '/uploads/products/cold-brew.jpg', 'active'),
+       ($14, $19, $28, 'Trà đào oolong', 'Oolong thơm dịu, đào chín và đá lạnh.', 46000, '/uploads/products/peach-tea.jpg', 'active')
      ON CONFLICT ("id") DO UPDATE SET
        "store_id" = EXCLUDED."store_id",
        "category_id" = EXCLUDED."category_id",
@@ -150,13 +197,28 @@ async function seedCategoriesAndProducts(
       IDS.products.soldOut,
       IDS.products.cola,
       IDS.products.sparklingWater,
+      IDS.products.vietnameseIcedCoffee,
+      IDS.products.peachTea,
+      IDS.products.mangoMatcha,
+      IDS.products.lycheeJasmine,
+      IDS.products.coconutCoffee,
+      IDS.products.strawberryHibiscus,
+      IDS.products.campusColdBrew,
+      IDS.products.campusPeachTea,
       IDS.stores.main,
       IDS.stores.secondary,
+      IDS.stores.riverside,
+      IDS.stores.garden,
+      IDS.stores.campus,
       IDS.categories.coffee,
       IDS.categories.milkTea,
       IDS.categories.softDrink,
-      IDS.products.vietnameseIcedCoffee,
-      IDS.products.peachTea,
+      IDS.categories.matcha,
+      IDS.categories.riversideTea,
+      IDS.categories.vietnameseCoffee,
+      IDS.categories.gardenFruitTea,
+      IDS.categories.campusCoffee,
+      IDS.categories.campusTea,
     ],
   );
 }

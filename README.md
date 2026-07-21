@@ -43,7 +43,7 @@ Sau khi các container khởi động:
 
 | Dịch vụ | Địa chỉ |
 | --- | --- |
-| Demo UI | <http://localhost:5173> |
+| Web UI | <http://localhost:5173> |
 | Backend API | <http://localhost:3000> |
 | Swagger UI | <http://localhost:3000/api-docs> |
 | Pgweb | <http://localhost:8081> |
@@ -65,7 +65,7 @@ docker compose down -v
 
 > Lệnh trên xóa vĩnh viễn dữ liệu đang lưu trong các Docker volume của project.
 
-## Chạy backend ở môi trường development
+## Chạy ở môi trường development
 
 ### 1. Cài đặt và cấu hình
 
@@ -99,6 +99,18 @@ npm run start:dev
 
 Backend chạy mặc định tại <http://localhost:3000> và Swagger UI tại <http://localhost:3000/api-docs>.
 
+### 5. Khởi động giao diện web
+
+Mở terminal khác:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Giao diện chạy tại <http://localhost:5173> và sử dụng API tại `http://localhost:3000` theo mặc định. Có thể thay đổi API URL bằng biến `VITE_API_URL`.
+
 ## Tài khoản demo
 
 | Vai trò | Email | Mật khẩu |
@@ -129,7 +141,8 @@ Lệnh `npm run seed` tạo cửa hàng, danh mục, sản phẩm và các đơn
 | `UPLOAD_ALLOWED_TYPES` | `jpg,jpeg,png,webp` | Các định dạng ảnh cho phép |
 | `CLIENT_URL` | `http://localhost:5173` | Origin được phép gọi API kèm credentials |
 | `RUN_DB_SEED` | `true` | Bật/tắt seed tự động khi chạy backend bằng Docker |
-| `UI_PORT` | `5173` | Cổng demo UI khi chạy Docker Compose |
+| `UI_PORT` | `5173` | Cổng web UI khi chạy Docker Compose |
+| `VITE_API_URL` | `http://localhost:3000` | Backend API URL được nhúng khi build frontend |
 
 Ứng dụng kết nối PostgreSQL qua TypeORM bằng nhóm biến `DB_*`. Các biến ở nhóm Docker Compose chỉ có tác dụng khi chạy bằng `docker compose`.
 
@@ -214,7 +227,8 @@ End-to-end test sử dụng database test. Đảm bảo PostgreSQL đang chạy 
 │   └── modules/         # Các feature module của hệ thống
 ├── test/                # End-to-end tests và test helpers
 ├── seed-assets/         # Ảnh sản phẩm cho demo seed
-├── UI/                  # Demo UI tĩnh
+├── frontend/            # React web app cho customer, staff và admin
+├── UI/                  # Demo UI tĩnh cũ, không còn được Docker sử dụng
 ├── documents/           # Tổng quan, kiến trúc, schema và kế hoạch dự án
 ├── docker-compose.yml
 └── Dockerfile
